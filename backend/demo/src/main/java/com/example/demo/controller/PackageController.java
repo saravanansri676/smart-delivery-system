@@ -1,4 +1,4 @@
-package com.example.controller;
+package com.example.demo.controller;
 
 import com.example.demo.model.Package;
 import com.example.demo.repository.DataStore;

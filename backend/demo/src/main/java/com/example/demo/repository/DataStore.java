@@ -1,4 +1,4 @@
-package com.example.repository;
+package com.example.demo.repository;
 
 import com.example.demo.model.Driver;
 import com.example.demo.model.Package;
