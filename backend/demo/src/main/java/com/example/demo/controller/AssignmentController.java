@@ -2,11 +2,11 @@ package com.example.demo.controller;
 
 import com.example.demo.model.Driver;
 import com.example.demo.model.Package;
-import com.example.demo.repository.DataStore;
+import com.example.demo.repository.DriverRepository;
+import com.example.demo.repository.PackageRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.ArrayList;
 import java.util.List;
 
 @RestController
@@ -14,53 +14,35 @@ import java.util.List;
 public class AssignmentController {
 
     @Autowired
-    private DataStore dataStore;
+    private PackageRepository packageRepository;
 
-    // Assign packages to a driver
+    @Autowired
+    private DriverRepository driverRepository;
+
     @PostMapping("/{driverId}")
     public String assignPackages(@PathVariable String driverId) {
 
-        // Find driver
-        Driver targetDriver = null;
-        for (Driver d : dataStore.drivers) {
-            if (d.getDriverId().equals(driverId)) {
-                targetDriver = d;
-                break;
-            }
-        }
+        Driver driver = driverRepository.findById(driverId)
+                .orElse(null);
+        if (driver == null) return "Driver not found";
 
-        if (targetDriver == null) return "Driver not found";
+        List<Package> unassigned = packageRepository.findByStatus("IN_STORE");
+        if (unassigned.isEmpty()) return "No packages to assign";
 
-        // Find unassigned packages
-        List<Package> toAssign = new ArrayList<>();
-        for (Package pkg : dataStore.packages) {
-            if ("IN_STORE".equals(pkg.getStatus())) {
-                toAssign.add(pkg);
-            }
-        }
-
-        if (toAssign.isEmpty()) return "No packages to assign";
-
-        // Assign packages to driver
-        for (Package pkg : toAssign) {
+        for (Package pkg : unassigned) {
             pkg.setStatus("ASSIGNED");
             pkg.setAssignedDriverId(driverId);
+            packageRepository.save(pkg);
         }
 
-        targetDriver.setStatus("ON_DELIVERY");
+        driver.setStatus("ON_DELIVERY");
+        driverRepository.save(driver);
 
-        return "Assigned " + toAssign.size() + " packages to driver " + driverId;
+        return "Assigned " + unassigned.size() + " packages to driver " + driverId;
     }
 
-    // View packages assigned to a driver
     @GetMapping("/{driverId}")
     public List<Package> getAssignedPackages(@PathVariable String driverId) {
-        List<Package> result = new ArrayList<>();
-        for (Package pkg : dataStore.packages) {
-            if (driverId.equals(pkg.getAssignedDriverId())) {
-                result.add(pkg);
-            }
-        }
-        return result;
+        return packageRepository.findByAssignedDriverId(driverId);
     }
 }

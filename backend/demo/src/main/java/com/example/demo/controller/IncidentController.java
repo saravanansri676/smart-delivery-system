@@ -1,53 +1,41 @@
 package com.example.demo.controller;
 
 import com.example.demo.model.Driver;
-import com.example.demo.repository.DataStore;
+import com.example.demo.repository.DriverRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.HashMap;
 
 @RestController
 @RequestMapping("/incident")
 public class IncidentController {
 
     @Autowired
-    private DataStore dataStore;
+    private DriverRepository driverRepository;
 
-    // Driver reports a problem
     @PostMapping("/report/{driverId}")
     public String reportIncident(@PathVariable String driverId,
                                  @RequestParam String issue) {
 
-        // Check driver exists
-        Driver reportingDriver = null;
-        for (Driver d : dataStore.drivers) {
-            if (d.getDriverId().equals(driverId)) {
-                reportingDriver = d;
-                break;
-            }
-        }
-
+        Driver reportingDriver = driverRepository.findById(driverId)
+                .orElse(null);
         if (reportingDriver == null) return "Driver not found";
 
-        // Find nearest available driver to help
+        // Find nearest available driver
+        List<Driver> availableDrivers = driverRepository.findByStatus("AVAILABLE");
+
         Driver nearestHelper = null;
         double minDistance = Double.MAX_VALUE;
 
-        for (Driver d : dataStore.drivers) {
-            if (!d.getDriverId().equals(driverId)
-                    && "AVAILABLE".equals(d.getStatus())) {
-
+        for (Driver d : availableDrivers) {
+            if (!d.getDriverId().equals(driverId)) {
                 double dist = calculateDistance(
                         reportingDriver.getCurrentLatitude(),
                         reportingDriver.getCurrentLongitude(),
                         d.getCurrentLatitude(),
                         d.getCurrentLongitude()
                 );
-
                 if (dist < minDistance) {
                     minDistance = dist;
                     nearestHelper = d;
@@ -57,7 +45,7 @@ public class IncidentController {
 
         if (nearestHelper == null) {
             return "Incident reported: " + issue +
-                    ". No available drivers nearby to assist.";
+                    ". No available drivers nearby.";
         }
 
         return "Incident reported: " + issue +
@@ -65,21 +53,9 @@ public class IncidentController {
                 " (" + String.format("%.2f", minDistance) + " km away)";
     }
 
-    // View all incidents (simple log)
-    @GetMapping("/all")
-    public List<Map<String, String>> getAllIncidents() {
-        // Placeholder - will connect to DB in later phase
-        List<Map<String, String>> incidents = new ArrayList<>();
-        Map<String, String> sample = new HashMap<>();
-        sample.put("status", "Incident log will be stored in DB in Phase 4");
-        incidents.add(sample);
-        return incidents;
-    }
-
-    // Haversine formula - calculates distance between two coordinates
     private double calculateDistance(double lat1, double lon1,
                                      double lat2, double lon2) {
-        final int R = 6371; // Earth radius in km
+        final int R = 6371;
         double dLat = Math.toRadians(lat2 - lat1);
         double dLon = Math.toRadians(lon2 - lon1);
         double a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
