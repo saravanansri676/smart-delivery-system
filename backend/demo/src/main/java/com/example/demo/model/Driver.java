@@ -12,7 +12,7 @@ public class Driver {
     private String vehicleNo;
     private String workStartTime;
     private String workEndTime;
-    private double fuelLevel;
+    private String fuelLevel;        // FULL, MID, LOW
     private double vehicleCapacity;
     private String status;
     private double currentLatitude;
