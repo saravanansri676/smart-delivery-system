@@ -3,6 +3,8 @@ import 'register_driver_screen.dart';
 import 'view_route_screen.dart';
 import 'fuel_status_screen.dart';
 import 'report_incident_screen.dart';
+import 'map_route_screen.dart';
+import 'weather_screen.dart';
 
 class DriverHome extends StatefulWidget {
   const DriverHome({super.key});
@@ -28,7 +30,6 @@ class _DriverHomeState extends State<DriverHome> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Driver ID input
             TextField(
               decoration: InputDecoration(
                 labelText: 'Enter Your Driver ID',
@@ -74,69 +75,56 @@ class _DriverHomeState extends State<DriverHome> {
                     icon: Icons.route,
                     title: 'My Route',
                     color: const Color(0xFF2E7D32),
-                    onTap: () {
-                      if (driverId.isEmpty) {
-                        ScaffoldMessenger.of(context)
-                            .showSnackBar(const SnackBar(
-                          content:
-                          Text('Please enter Driver ID first'),
-                        ));
-                        return;
-                      }
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) =>
-                              ViewRouteScreen(driverId: driverId),
+                    onTap: () => _navigateWithId(
+                      context,
+                      ViewRouteScreen(driverId: driverId),
+                    ),
+                  ),
+                  _buildMenuCard(
+                    context,
+                    icon: Icons.map,
+                    title: 'Route Map',
+                    color: const Color(0xFF00838F),
+                    onTap: () => _navigateWithId(
+                      context,
+                      MapRouteScreen(driverId: driverId),
+                    ),
+                  ),
+                  _buildMenuCard(
+                    context,
+                    icon: Icons.cloud,
+                    title: 'Weather',
+                    color: const Color(0xFF1565C0),
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const WeatherScreen(
+                          latitude: 13.0827,
+                          longitude: 80.2707,
                         ),
-                      );
-                    },
+                      ),
+                    ),
                   ),
                   _buildMenuCard(
                     context,
                     icon: Icons.local_gas_station,
                     title: 'Fuel Status',
                     color: const Color(0xFFE65100),
-                    onTap: () {
-                      if (driverId.isEmpty) {
-                        ScaffoldMessenger.of(context)
-                            .showSnackBar(const SnackBar(
-                          content:
-                          Text('Please enter Driver ID first'),
-                        ));
-                        return;
-                      }
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) =>
-                              FuelStatusScreen(driverId: driverId),
-                        ),
-                      );
-                    },
+                    onTap: () => _navigateWithId(
+                      context,
+                      FuelStatusScreen(driverId: driverId),
+                    ),
                   ),
                   _buildMenuCard(
                     context,
                     icon: Icons.warning,
                     title: 'Report Incident',
                     color: const Color(0xFFC62828),
-                    onTap: () {
-                      if (driverId.isEmpty) {
-                        ScaffoldMessenger.of(context)
-                            .showSnackBar(const SnackBar(
-                          content:
-                          Text('Please enter Driver ID first'),
-                        ));
-                        return;
-                      }
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => ReportIncidentScreen(
-                              driverId: driverId),
-                        ),
-                      );
-                    },
+                    onTap: () => _navigateWithId(
+                      context,
+                      ReportIncidentScreen(
+                          driverId: driverId),
+                    ),
                   ),
                 ],
               ),
@@ -145,6 +133,18 @@ class _DriverHomeState extends State<DriverHome> {
         ),
       ),
     );
+  }
+
+  void _navigateWithId(BuildContext context, Widget screen) {
+    if (driverId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Please enter Driver ID first')),
+      );
+      return;
+    }
+    Navigator.push(
+        context, MaterialPageRoute(builder: (_) => screen));
   }
 
   Widget _buildMenuCard(BuildContext context,
