@@ -1,8 +1,7 @@
 package com.example.demo.controller;
 
-
 import com.example.demo.model.Driver;
-import com.example.demo.repository.DataStore;
+import com.example.demo.repository.DriverRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -13,31 +12,27 @@ import java.util.List;
 public class DriverController {
 
     @Autowired
-    private DataStore dataStore;
+    private DriverRepository driverRepository;
 
-    // Register a driver
     @PostMapping("/add")
     public String addDriver(@RequestBody Driver driver) {
         driver.setStatus("AVAILABLE");
-        dataStore.drivers.add(driver);
+        driverRepository.save(driver);
         return "Driver registered: " + driver.getDriverId();
     }
 
-    // View all drivers
     @GetMapping("/all")
     public List<Driver> getAllDrivers() {
-        return dataStore.drivers;
+        return driverRepository.findAll();
     }
 
-    // Update driver status
     @PutMapping("/status/{id}")
-    public String updateStatus(@PathVariable String id, @RequestParam String status) {
-        for (Driver driver : dataStore.drivers) {
-            if (driver.getDriverId().equals(id)) {
-                driver.setStatus(status);
-                return "Driver status updated to: " + status;
-            }
-        }
-        return "Driver not found";
+    public String updateStatus(@PathVariable String id,
+                               @RequestParam String status) {
+        return driverRepository.findById(id).map(driver -> {
+            driver.setStatus(status);
+            driverRepository.save(driver);
+            return "Driver status updated to: " + status;
+        }).orElse("Driver not found");
     }
 }
