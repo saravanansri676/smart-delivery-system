@@ -10,83 +10,133 @@ class ManagerHome extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: const Color(0xFFF0F4FF),
       appBar: AppBar(
         title: const Text('Manager Dashboard'),
-        backgroundColor: const Color(0xFF1565C0),
-        foregroundColor: Colors.white,
-        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_rounded),
+          onPressed: () => Navigator.pop(context),
+        ),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(20.0),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'What would you like to do?',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF1565C0),
-              ),
-            ),
-            const SizedBox(height: 20),
-            Expanded(
-              child: GridView.count(
-                crossAxisCount: 2,
-                crossAxisSpacing: 16,
-                mainAxisSpacing: 16,
-                children: [
-                  _buildMenuCard(
-                    context,
-                    icon: Icons.add_box,
-                    title: 'Add Package',
-                    color: const Color(0xFF1565C0),
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const AddPackageScreen(),
-                      ),
-                    ),
-                  ),
-                  _buildMenuCard(
-                    context,
-                    icon: Icons.inventory,
-                    title: 'View Packages',
-                    color: const Color(0xFF2E7D32),
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const ViewPackagesScreen(),
-                      ),
-                    ),
-                  ),
-                  _buildMenuCard(
-                    context,
-                    icon: Icons.people,
-                    title: 'View Drivers',
-                    color: const Color(0xFFE65100),
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const ViewDriversScreen(),
-                      ),
-                    ),
-                  ),
-                  _buildMenuCard(
-                    context,
-                    icon: Icons.dashboard,
-                    title: 'Live Status',
-                    color: const Color(0xFF6A1B9A),
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const DeliveryStatusScreen(),
-                      ),
-                    ),
+            // Header card
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF0D47A1), Color(0xFF1976D2)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF0D47A1).withOpacity(0.3),
+                    blurRadius: 20,
+                    offset: const Offset(0, 8),
                   ),
                 ],
               ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.admin_panel_settings_rounded,
+                      color: Colors.white,
+                      size: 32,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  const Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Welcome, Manager',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      Text(
+                        'Smart Delivery System',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 28),
+            const Text(
+              'QUICK ACTIONS',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF0D47A1),
+                letterSpacing: 1.5,
+              ),
+            ),
+            const SizedBox(height: 16),
+            // Menu grid
+            GridView.count(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              crossAxisCount: 2,
+              crossAxisSpacing: 16,
+              mainAxisSpacing: 16,
+              childAspectRatio: 1.1,
+              children: [
+                _buildMenuCard(
+                  context,
+                  icon: Icons.add_box_rounded,
+                  title: 'Add Package',
+                  subtitle: 'Register new package',
+                  color: const Color(0xFF0D47A1),
+                  onTap: () => _navigate(
+                      context, const AddPackageScreen()),
+                ),
+                _buildMenuCard(
+                  context,
+                  icon: Icons.inventory_2_rounded,
+                  title: 'View Packages',
+                  subtitle: 'Track all packages',
+                  color: const Color(0xFF2E7D32),
+                  onTap: () => _navigate(
+                      context, const ViewPackagesScreen()),
+                ),
+                _buildMenuCard(
+                  context,
+                  icon: Icons.people_rounded,
+                  title: 'View Drivers',
+                  subtitle: 'Monitor drivers',
+                  color: const Color(0xFFE65100),
+                  onTap: () => _navigate(
+                      context, const ViewDriversScreen()),
+                ),
+                _buildMenuCard(
+                  context,
+                  icon: Icons.dashboard_rounded,
+                  title: 'Live Status',
+                  subtitle: 'Delivery dashboard',
+                  color: const Color(0xFF6A1B9A),
+                  onTap: () => _navigate(
+                      context, const DeliveryStatusScreen()),
+                ),
+              ],
             ),
           ],
         ),
@@ -94,44 +144,80 @@ class ManagerHome extends StatelessWidget {
     );
   }
 
-  Widget _buildMenuCard(BuildContext context,
-      {required IconData icon,
+  void _navigate(BuildContext context, Widget screen) {
+    Navigator.push(
+      context,
+      PageRouteBuilder(
+        pageBuilder: (_, a, b) => screen,
+        transitionsBuilder: (_, a, b, child) =>
+            SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(1, 0),
+                end: Offset.zero,
+              ).animate(CurvedAnimation(
+                  parent: a, curve: Curves.easeOut)),
+              child: child,
+            ),
+        transitionDuration: const Duration(milliseconds: 300),
+      ),
+    );
+  }
+
+  Widget _buildMenuCard(
+      BuildContext context, {
+        required IconData icon,
         required String title,
+        required String subtitle,
         required Color color,
-        required VoidCallback onTap}) {
+        required VoidCallback onTap,
+      }) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
+        padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: Colors.grey.withOpacity(0.2),
-              blurRadius: 8,
+              color: color.withOpacity(0.1),
+              blurRadius: 16,
               offset: const Offset(0, 4),
             ),
           ],
         ),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
                 color: color.withOpacity(0.1),
-                shape: BoxShape.circle,
+                borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(icon, size: 40, color: color),
+              child: Icon(icon, color: color, size: 28),
             ),
-            const SizedBox(height: 12),
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: color,
-              ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF1A1A2E),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.grey.shade500,
+                  ),
+                ),
+              ],
             ),
           ],
         ),

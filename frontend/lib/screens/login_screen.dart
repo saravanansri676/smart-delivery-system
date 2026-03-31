@@ -1,108 +1,303 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'manager/manager_home.dart';
 import 'driver/driver_home.dart';
 
-class LoginScreen extends StatelessWidget {
+class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
+
+  @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen>
+    with TickerProviderStateMixin {
+  late AnimationController _fadeController;
+  late AnimationController _slideController;
+  late Animation<double> _fadeAnimation;
+  late Animation<Offset> _slideAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _fadeController = AnimationController(
+      duration: const Duration(milliseconds: 1200),
+      vsync: this,
+    );
+    _slideController = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    );
+    _fadeAnimation = Tween<double>(begin: 0, end: 1)
+        .animate(CurvedAnimation(
+      parent: _fadeController,
+      curve: Curves.easeIn,
+    ));
+    _slideAnimation =
+        Tween<Offset>(begin: const Offset(0, 0.3), end: Offset.zero)
+            .animate(CurvedAnimation(
+          parent: _slideController,
+          curve: Curves.easeOut,
+        ));
+    _fadeController.forward();
+    Timer(const Duration(milliseconds: 400), () {
+      _slideController.forward();
+    });
+  }
+
+  @override
+  void dispose() {
+    _fadeController.dispose();
+    _slideController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1565C0),
-      body: SafeArea(
-        child: Center(
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFF0D47A1),
+              Color(0xFF1565C0),
+              Color(0xFF1976D2),
+            ],
+          ),
+        ),
+        child: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.all(32.0),
+            padding: const EdgeInsets.symmetric(horizontal: 32),
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Logo
-                const Icon(
-                  Icons.local_shipping,
-                  size: 100,
-                  color: Colors.white,
-                ),
-                const SizedBox(height: 20),
-                const Text(
-                  'Smart Delivery System',
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                const Text(
-                  'Select your role to continue',
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.white70,
-                  ),
-                ),
-                const SizedBox(height: 60),
-
-                // Manager Button
-                SizedBox(
-                  width: double.infinity,
-                  height: 60,
-                  child: ElevatedButton.icon(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const ManagerHome(),
+                const Spacer(flex: 2),
+                // Logo and title
+                FadeTransition(
+                  opacity: _fadeAnimation,
+                  child: Column(
+                    children: [
+                      Container(
+                        width: 100,
+                        height: 100,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.15),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.3),
+                            width: 2,
+                          ),
                         ),
-                      );
-                    },
-                    icon: const Icon(Icons.admin_panel_settings,
-                        size: 28),
-                    label: const Text(
-                      'Login as Manager',
-                      style: TextStyle(fontSize: 18),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: const Color(0xFF1565C0),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-
-                // Driver Button
-                SizedBox(
-                  width: double.infinity,
-                  height: 60,
-                  child: ElevatedButton.icon(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const DriverHome(),
+                        child: const Icon(
+                          Icons.local_shipping_rounded,
+                          size: 55,
+                          color: Colors.white,
                         ),
-                      );
-                    },
-                    icon: const Icon(Icons.drive_eta, size: 28),
-                    label: const Text(
-                      'Login as Driver',
-                      style: TextStyle(fontSize: 18),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.transparent,
-                      foregroundColor: Colors.white,
-                      side: const BorderSide(
-                          color: Colors.white, width: 2),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
                       ),
+                      const SizedBox(height: 24),
+                      const Text(
+                        'Smart Delivery',
+                        style: TextStyle(
+                          fontSize: 32,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                          letterSpacing: 1,
+                        ),
+                      ),
+                      const Text(
+                        'System',
+                        style: TextStyle(
+                          fontSize: 32,
+                          fontWeight: FontWeight.w300,
+                          color: Colors.white,
+                          letterSpacing: 1,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: const Text(
+                          'Powered by TSP Optimization',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.white70,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Spacer(flex: 2),
+                // Buttons
+                SlideTransition(
+                  position: _slideAnimation,
+                  child: FadeTransition(
+                    opacity: _fadeAnimation,
+                    child: Column(
+                      children: [
+                        const Text(
+                          'SELECT YOUR ROLE',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.white60,
+                            letterSpacing: 2,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        _buildRoleButton(
+                          context,
+                          icon: Icons.admin_panel_settings_rounded,
+                          title: 'Manager',
+                          subtitle: 'Manage packages & drivers',
+                          isOutlined: false,
+                          onTap: () => Navigator.push(
+                            context,
+                            PageRouteBuilder(
+                              pageBuilder: (_, a, b) =>
+                              const ManagerHome(),
+                              transitionsBuilder: (_, a, b, child) =>
+                                  FadeTransition(
+                                      opacity: a, child: child),
+                              transitionDuration:
+                              const Duration(milliseconds: 300),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        _buildRoleButton(
+                          context,
+                          icon: Icons.drive_eta_rounded,
+                          title: 'Driver',
+                          subtitle: 'View routes & deliveries',
+                          isOutlined: true,
+                          onTap: () => Navigator.push(
+                            context,
+                            PageRouteBuilder(
+                              pageBuilder: (_, a, b) =>
+                              const DriverHome(),
+                              transitionsBuilder: (_, a, b, child) =>
+                                  FadeTransition(
+                                      opacity: a, child: child),
+                              transitionDuration:
+                              const Duration(milliseconds: 300),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
+                const Spacer(),
+                const Text(
+                  'v1.0.0 • Smart Delivery System',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.white38,
+                  ),
+                ),
+                const SizedBox(height: 16),
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRoleButton(
+      BuildContext context, {
+        required IconData icon,
+        required String title,
+        required String subtitle,
+        required bool isOutlined,
+        required VoidCallback onTap,
+      }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        width: double.infinity,
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: isOutlined
+              ? Colors.transparent
+              : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: Colors.white.withOpacity(0.5),
+            width: isOutlined ? 1.5 : 0,
+          ),
+          boxShadow: isOutlined
+              ? []
+              : [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.15),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: isOutlined
+                    ? Colors.white.withOpacity(0.15)
+                    : const Color(0xFF0D47A1).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                icon,
+                size: 28,
+                color: isOutlined
+                    ? Colors.white
+                    : const Color(0xFF0D47A1),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: isOutlined
+                          ? Colors.white
+                          : const Color(0xFF0D47A1),
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: isOutlined
+                          ? Colors.white60
+                          : Colors.grey.shade600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.arrow_forward_ios_rounded,
+              size: 16,
+              color: isOutlined
+                  ? Colors.white60
+                  : Colors.grey.shade400,
+            ),
+          ],
         ),
       ),
     );
