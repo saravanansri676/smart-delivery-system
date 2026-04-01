@@ -15,10 +15,11 @@ public class Package {
     private String address;
     private double latitude;
     private double longitude;
-    private String deadlineDate;    // format: "yyyy-MM-dd HH:mm"
+    private String deadline;        // HH:mm - kept for TSP calculations
+    private String deadlineDate;    // yyyy-MM-dd HH:mm - for display
     private double weightKg;
-    private String size;            // SMALL, MEDIUM, LARGE
-    private String status;          // IN_STORE, ASSIGNED, MOVING, DELIVERED
+    private String size;
+    private String status;
     private int priority;
     private String assignedDriverId;
 }
