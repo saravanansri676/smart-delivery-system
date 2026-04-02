@@ -1,3 +1,7 @@
+import 'dart:io';
+import 'dart:ui' as ui;
+import 'package:flutter/rendering.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
@@ -11,6 +15,8 @@ class AddPackageScreen extends StatefulWidget {
   State<AddPackageScreen> createState() =>
       _AddPackageScreenState();
 }
+
+final GlobalKey _qrKey = GlobalKey();
 
 class _AddPackageScreenState extends State<AddPackageScreen> {
   final _formKey = GlobalKey<FormState>();
@@ -148,151 +154,195 @@ class _AddPackageScreenState extends State<AddPackageScreen> {
 
   void _showQRDialog() {
     final qrData = jsonEncode(_addedPackage);
+
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (_) => Dialog(
+        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Success icon
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.green.shade50,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.check_circle_rounded,
-                  color: Colors.green,
-                  size: 48,
-                ),
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'Package Added!',
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF1A1A2E),
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                _generatedPackageId ?? '',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey.shade600,
-                  fontFamily: 'monospace',
-                ),
-              ),
-              const SizedBox(height: 20),
-              // QR Code
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                      color: Colors.grey.shade200),
-                ),
-                child: QrImageView(
-                  data: qrData,
-                  version: QrVersions.auto,
-                  size: 180,
-                  backgroundColor: Colors.white,
-                ),
-              ),
-              const SizedBox(height: 12),
-              const Text(
-                'Scan to view package details',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey,
-                ),
-              ),
-              const SizedBox(height: 8),
-              // Package info
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF0F4FF),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Column(
-                  children: [
-                    _buildInfoRow('Receiver',
-                        _addedPackage!['receiverName']),
-                    _buildInfoRow('Phone',
-                        _addedPackage!['receiverPhone']),
-                    _buildInfoRow('Address',
-                        _addedPackage!['address']),
-                    _buildInfoRow('Deadline',
-                        _addedPackage!['deadlineDate']),
-                    _buildInfoRow('Size',
-                        _addedPackage!['size']),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                '📋 Print this QR code and paste on package',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Color(0xFF0D47A1),
-                  fontWeight: FontWeight.w600,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 16),
-              Row(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.8,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () {
-                        Navigator.pop(context);
-                        _clearFields();
-                      },
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(
-                            vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius:
-                          BorderRadius.circular(10),
-                        ),
-                      ),
-                      child: const Text('Add Another'),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.green.shade50,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.check_circle_rounded,
+                      color: Colors.green,
+                      size: 48,
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () {
-                        Navigator.pop(context);
-                        Navigator.pop(context);
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor:
-                        const Color(0xFF0D47A1),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                            vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius:
-                          BorderRadius.circular(10),
+
+                  const SizedBox(height: 16),
+
+                  const Text(
+                    'Package Added!',
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF1A1A2E),
+                    ),
+                  ),
+
+                  const SizedBox(height: 4),
+
+                  Text(
+                    _generatedPackageId ?? '',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey.shade600,
+                      fontFamily: 'monospace',
+                    ),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // QR Code
+                  RepaintBoundary(
+                    key: _qrKey,
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      color: Colors.white,
+                      child: Column(
+                        children: [
+                          QrImageView(
+                            data: qrData,
+                            version: QrVersions.auto,
+                            size: 180,
+                            backgroundColor: Colors.white,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            _generatedPackageId ?? '',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontFamily: 'monospace',
+                              color: Colors.black,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 8),
+
+                  // Download button
+                  TextButton.icon(
+                    onPressed: _downloadQR,
+                    icon: const Icon(Icons.download_rounded,
+                        color: Color(0xFF0D47A1)),
+                    label: const Text(
+                      'Download QR Code',
+                      style: TextStyle(color: Color(0xFF0D47A1)),
+                    ),
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  const Text(
+                    'Scan to view package details',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey,
+                    ),
+                  ),
+
+                  const SizedBox(height: 8),
+
+                  //  Package info
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF0F4FF),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Column(
+                      children: [
+                        _buildInfoRow('Receiver',
+                            _addedPackage!['receiverName']),
+                        _buildInfoRow('Phone',
+                            _addedPackage!['receiverPhone']),
+                        _buildInfoRow('Address',
+                            _addedPackage!['address']),
+                        _buildInfoRow('Deadline',
+                            _addedPackage!['deadlineDate']),
+                        _buildInfoRow('Size',
+                            _addedPackage!['size']),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  const Text(
+                    'Print this QR code and paste on package',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF0D47A1),
+                      fontWeight: FontWeight.w600,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // Buttons
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () {
+                            Navigator.pop(context);
+                            _clearFields();
+                          },
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          child: const Text('Add Another'),
                         ),
                       ),
-                      child: const Text('Done'),
-                    ),
+
+                      const SizedBox(width: 12),
+
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () {
+                            Navigator.pop(context);
+                            Navigator.pop(context);
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF0D47A1),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          child: const Text('Done'),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
-            ],
+            ),
           ),
         ),
       ),
@@ -374,6 +424,7 @@ class _AddPackageScreenState extends State<AddPackageScreen> {
                   label: 'Package Name',
                   hint: 'e.g. Laptop, Books, Clothes',
                   icon: Icons.inventory_rounded,
+                  isAlphaOnly: true,
                   validator: (v) => v!.isEmpty
                       ? 'Package name required' : null,
                 ),
@@ -448,6 +499,7 @@ class _AddPackageScreenState extends State<AddPackageScreen> {
                   label: 'Receiver Name',
                   hint: 'Full name of receiver',
                   icon: Icons.person_rounded,
+                  isAlphaOnly: true,
                   validator: (v) => v!.isEmpty
                       ? 'Receiver name required' : null,
                 ),
@@ -650,16 +702,22 @@ class _AddPackageScreenState extends State<AddPackageScreen> {
     required String hint,
     required IconData icon,
     bool isNumber = false,
+    bool isAlphaOnly = false,
     int maxLines = 1,
     String? Function(String?)? validator,
   }) {
     return TextFormField(
       controller: controller,
       keyboardType: isNumber
-          ? TextInputType.number
+          ? const TextInputType.numberWithOptions(decimal: true)
           : TextInputType.multiline,
       maxLines: maxLines,
       validator: validator,
+      inputFormatters: isNumber
+          ? [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))]
+          : isAlphaOnly
+          ? [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z\s]'))]
+          : null,
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,
@@ -669,5 +727,36 @@ class _AddPackageScreenState extends State<AddPackageScreen> {
         ),
       ),
     );
+  }
+  Future<void> _downloadQR() async {
+    try {
+      RenderRepaintBoundary boundary = _qrKey.currentContext!
+          .findRenderObject() as RenderRepaintBoundary;
+      ui.Image image = await boundary.toImage(pixelRatio: 3.0);
+      final byteData = await image.toByteData(
+          format: ui.ImageByteFormat.png);
+      final pngBytes = byteData!.buffer.asUint8List();
+
+      final directory = await getExternalStorageDirectory();
+      final path = '${directory!.path}/'
+          '${_generatedPackageId}_QR.png';
+      final file = File(path);
+      await file.writeAsBytes(pngBytes);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('QR saved to: $path'),
+          backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error saving QR: $e')),
+      );
+    }
   }
 }
