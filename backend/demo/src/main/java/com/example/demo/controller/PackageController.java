@@ -20,7 +20,6 @@ public class PackageController {
 
     @PostMapping("/add")
     public String addPackage(@RequestBody Package pkg) {
-        // Auto-generate package ID if not provided
         if (pkg.getPackageId() == null
                 || pkg.getPackageId().isEmpty()) {
             pkg.setPackageId("PKG" + System.currentTimeMillis());
@@ -30,8 +29,13 @@ public class PackageController {
         if (pkg.getLatitude() == 0 && pkg.getLongitude() == 0) {
             double[] coords = geocodingService
                     .getCoordinates(pkg.getAddress());
-            pkg.setLatitude(coords[0]);
-            pkg.setLongitude(coords[1]);
+            if (coords != null) {
+                pkg.setLatitude(coords[0]);
+                pkg.setLongitude(coords[1]);
+            } else {
+                return "Invalid address, please refine: "
+                        + pkg.getAddress();
+            }
         }
 
         pkg.setStatus("IN_STORE");
