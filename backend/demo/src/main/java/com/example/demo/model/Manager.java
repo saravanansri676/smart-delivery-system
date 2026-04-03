@@ -9,6 +9,15 @@ import lombok.Data;
 public class Manager {
     @Id
     private String managerId;
-    private String companyName;
     private String name;
+    private int age;
+    private String sex;
+    private String email;
+    private String mobileNumber;
+    private String companyName;
+    private String officeLocation;
+    private String joinedDate;
+    private String accountStatus;   // ACTIVE, SUSPENDED
+    private int totalPackagesManaged;
+    private int totalDriversAssigned;
 }
