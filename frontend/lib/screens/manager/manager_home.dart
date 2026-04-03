@@ -3,6 +3,7 @@ import 'add_package_screen.dart';
 import 'view_packages_screen.dart';
 import 'view_drivers_screen.dart';
 import 'delivery_status_screen.dart';
+import 'manager_profile_screen.dart';
 
 class ManagerHome extends StatelessWidget {
   const ManagerHome({super.key});
@@ -17,6 +18,18 @@ class ManagerHome extends StatelessWidget {
           icon: const Icon(Icons.arrow_back_ios_rounded),
           onPressed: () => Navigator.pop(context),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.account_circle_rounded,
+                color: Colors.white, size: 28),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const ManagerProfileScreen(),
+              ),
+            ),
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
