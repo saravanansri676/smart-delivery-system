@@ -5,6 +5,7 @@ import 'fuel_status_screen.dart';
 import 'report_incident_screen.dart';
 import 'map_route_screen.dart';
 import 'weather_screen.dart';
+import 'driver_profile_screen.dart';
 
 class DriverHome extends StatefulWidget {
   const DriverHome({super.key});
@@ -27,6 +28,35 @@ class _DriverHomeState extends State<DriverHome> {
           icon: const Icon(Icons.arrow_back_ios_rounded),
           onPressed: () => Navigator.pop(context),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(
+              Icons.account_circle_rounded,
+              color: Colors.white,
+              size: 28,
+            ),
+            onPressed: () {
+              if (driverId.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                        'Please enter Driver ID first'),
+                    backgroundColor: Colors.red,
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+                return;
+              }
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => DriverProfileScreen(
+                      driverId: driverId),
+                ),
+              );
+            },
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
