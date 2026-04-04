@@ -36,7 +36,6 @@ class _ManagerProfileScreenState
   @override
   void initState() {
     super.initState();
-    // Initialize with passed data
     managerData = {
       'managerId': widget.managerId,
       'name': widget.managerName,
@@ -54,16 +53,32 @@ class _ManagerProfileScreenState
 
   Future<void> fetchData() async {
     try {
-      // Fetch delivery status for work details
+      // Fetch manager profile from backend
+      final profileResponse = await http.get(
+        Uri.parse('$baseUrl/auth/manager/profile'
+            '/${widget.managerId}'),
+      );
+
+      // Fetch delivery status
       final statusResponse = await http
           .get(Uri.parse('$baseUrl/delivery/status'));
+
+      // Fetch drivers
       final driversResponse = await http
           .get(Uri.parse('$baseUrl/drivers/all'));
 
-      if (statusResponse.statusCode == 200) {
+      if (profileResponse.statusCode == 200) {
+        final profileJson =
+        jsonDecode(profileResponse.body)
+        as Map<String, dynamic>;
+
         final statusJson =
-        jsonDecode(statusResponse.body);
-        final drivers = driversResponse.statusCode == 200
+        statusResponse.statusCode == 200
+            ? jsonDecode(statusResponse.body)
+            : {};
+
+        final drivers =
+        driversResponse.statusCode == 200
             ? jsonDecode(driversResponse.body) as List
             : [];
 
@@ -71,29 +86,40 @@ class _ManagerProfileScreenState
             .where((d) => d['status'] == 'ON_DELIVERY')
             .length;
         final inactiveDrivers = drivers
-            .where((d) => d['status'] == 'AVAILABLE' ||
+            .where((d) =>
+        d['status'] == 'AVAILABLE' ||
             d['status'] == 'OFFLINE')
             .length;
 
         setState(() {
+          // Merge backend data with local data
+          managerData = {
+            'managerId':
+            profileJson['managerId'] ??
+                widget.managerId,
+            'name': profileJson['name'] ??
+                widget.managerName,
+            'email': profileJson['email'] ??
+                widget.managerEmail,
+            'companyName':
+            profileJson['companyName'] ??
+                widget.companyName,
+            'accountStatus':
+            profileJson['accountStatus'] ?? 'ACTIVE',
+            'age': managerData['age'] ?? 'N/A',
+            'sex': managerData['sex'] ?? 'N/A',
+            'mobileNumber':
+            managerData['mobileNumber'] ?? 'N/A',
+            'officeLocation':
+            managerData['officeLocation'] ?? 'N/A',
+            'joinedDate':
+            managerData['joinedDate'] ?? 'N/A',
+          };
           statusData = {
-            ...statusJson,
+            ...Map<String, dynamic>.from(statusJson),
             'totalDrivers': drivers.length,
             'activeDrivers': activeDrivers,
             'inactiveDrivers': inactiveDrivers,
-          };
-          // Default manager profile
-          managerData = {
-            'managerId': managerId,
-            'name': 'Manager',
-            'age': 35,
-            'sex': 'N/A',
-            'email': 'manager@company.com',
-            'mobileNumber': 'N/A',
-            'companyName': 'Smart Delivery Co.',
-            'officeLocation': 'Coimbatore, Tamil Nadu',
-            'joinedDate': '2024-01-01',
-            'accountStatus': 'ACTIVE',
           };
           isLoading = false;
         });
