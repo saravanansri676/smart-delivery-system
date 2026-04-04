@@ -4,6 +4,10 @@ import com.example.demo.service.ManagerAuthService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import java.util.Map;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
+import com.example.demo.repository.ManagerAccountRepository;
 
 @RestController
 @RequestMapping("/auth/manager")
@@ -11,6 +15,9 @@ public class ManagerAuthController {
 
     @Autowired
     private ManagerAuthService authService;
+
+    @Autowired
+    private ManagerAccountRepository accountRepository;
 
     // Login
     @PostMapping("/login")
@@ -61,5 +68,25 @@ public class ManagerAuthController {
                 body.get("otp"),
                 body.get("newPassword")
         );
+    }
+
+    // Get manager profile by ID
+    @GetMapping("/profile/{managerId}")
+    public Map<String, Object> getProfile(
+            @PathVariable String managerId) {
+        Optional<com.example.demo.model.ManagerAccount> account =
+                accountRepository.findById(managerId);
+
+        Map<String, Object> result = new HashMap<>();
+        if (account.isPresent()) {
+            com.example.demo.model.ManagerAccount mgr =
+                    account.get();
+            result.put("managerId", mgr.getManagerId());
+            result.put("name", mgr.getName());
+            result.put("email", mgr.getEmail());
+            result.put("companyName", mgr.getCompanyName());
+            result.put("accountStatus", mgr.getAccountStatus());
+        }
+        return result;
     }
 }
