@@ -4,7 +4,18 @@ import 'dart:convert';
 import '../login_screen.dart';
 
 class ManagerProfileScreen extends StatefulWidget {
-  const ManagerProfileScreen({super.key});
+  final String managerId;
+  final String managerName;
+  final String managerEmail;
+  final String companyName;
+
+  const ManagerProfileScreen({
+    super.key,
+    required this.managerId,
+    required this.managerName,
+    required this.managerEmail,
+    required this.companyName,
+  });
 
   @override
   State<ManagerProfileScreen> createState() =>
@@ -25,6 +36,19 @@ class _ManagerProfileScreenState
   @override
   void initState() {
     super.initState();
+    // Initialize with passed data
+    managerData = {
+      'managerId': widget.managerId,
+      'name': widget.managerName,
+      'email': widget.managerEmail,
+      'companyName': widget.companyName,
+      'age': 'N/A',
+      'sex': 'N/A',
+      'mobileNumber': 'N/A',
+      'officeLocation': 'N/A',
+      'joinedDate': 'N/A',
+      'accountStatus': 'ACTIVE',
+    };
     fetchData();
   }
 

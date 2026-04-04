@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
-import 'manager/manager_home.dart';
+import 'manager/manager_login_screen.dart';
 import 'driver/driver_home.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -33,12 +33,12 @@ class _LoginScreenState extends State<LoginScreen>
       parent: _fadeController,
       curve: Curves.easeIn,
     ));
-    _slideAnimation =
-        Tween<Offset>(begin: const Offset(0, 0.3), end: Offset.zero)
-            .animate(CurvedAnimation(
-          parent: _slideController,
-          curve: Curves.easeOut,
-        ));
+    _slideAnimation = Tween<Offset>(
+        begin: const Offset(0, 0.3), end: Offset.zero)
+        .animate(CurvedAnimation(
+      parent: _slideController,
+      curve: Curves.easeOut,
+    ));
     _fadeController.forward();
     Timer(const Duration(milliseconds: 400), () {
       _slideController.forward();
@@ -69,11 +69,11 @@ class _LoginScreenState extends State<LoginScreen>
         ),
         child: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 32),
+            padding:
+            const EdgeInsets.symmetric(horizontal: 32),
             child: Column(
               children: [
                 const Spacer(flex: 2),
-                // Logo and title
                 FadeTransition(
                   opacity: _fadeAnimation,
                   child: Column(
@@ -82,10 +82,12 @@ class _LoginScreenState extends State<LoginScreen>
                         width: 100,
                         height: 100,
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.15),
+                          color:
+                          Colors.white.withOpacity(0.15),
                           shape: BoxShape.circle,
                           border: Border.all(
-                            color: Colors.white.withOpacity(0.3),
+                            color:
+                            Colors.white.withOpacity(0.3),
                             width: 2,
                           ),
                         ),
@@ -119,8 +121,10 @@ class _LoginScreenState extends State<LoginScreen>
                         padding: const EdgeInsets.symmetric(
                             horizontal: 16, vertical: 6),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.15),
-                          borderRadius: BorderRadius.circular(20),
+                          color:
+                          Colors.white.withOpacity(0.15),
+                          borderRadius:
+                          BorderRadius.circular(20),
                         ),
                         child: const Text(
                           'Powered by TSP Optimization',
@@ -135,7 +139,6 @@ class _LoginScreenState extends State<LoginScreen>
                   ),
                 ),
                 const Spacer(flex: 2),
-                // Buttons
                 SlideTransition(
                   position: _slideAnimation,
                   child: FadeTransition(
@@ -154,20 +157,25 @@ class _LoginScreenState extends State<LoginScreen>
                         const SizedBox(height: 20),
                         _buildRoleButton(
                           context,
-                          icon: Icons.admin_panel_settings_rounded,
+                          icon: Icons
+                              .admin_panel_settings_rounded,
                           title: 'Manager',
-                          subtitle: 'Manage packages & drivers',
+                          subtitle:
+                          'Manage packages & drivers',
                           isOutlined: false,
                           onTap: () => Navigator.push(
                             context,
                             PageRouteBuilder(
                               pageBuilder: (_, a, b) =>
-                              const ManagerHome(),
-                              transitionsBuilder: (_, a, b, child) =>
+                              const ManagerLoginScreen(),
+                              transitionsBuilder:
+                                  (_, a, b, child) =>
                                   FadeTransition(
-                                      opacity: a, child: child),
+                                      opacity: a,
+                                      child: child),
                               transitionDuration:
-                              const Duration(milliseconds: 300),
+                              const Duration(
+                                  milliseconds: 300),
                             ),
                           ),
                         ),
@@ -176,18 +184,22 @@ class _LoginScreenState extends State<LoginScreen>
                           context,
                           icon: Icons.drive_eta_rounded,
                           title: 'Driver',
-                          subtitle: 'View routes & deliveries',
+                          subtitle:
+                          'View routes & deliveries',
                           isOutlined: true,
                           onTap: () => Navigator.push(
                             context,
                             PageRouteBuilder(
                               pageBuilder: (_, a, b) =>
                               const DriverHome(),
-                              transitionsBuilder: (_, a, b, child) =>
+                              transitionsBuilder:
+                                  (_, a, b, child) =>
                                   FadeTransition(
-                                      opacity: a, child: child),
+                                      opacity: a,
+                                      child: child),
                               transitionDuration:
-                              const Duration(milliseconds: 300),
+                              const Duration(
+                                  milliseconds: 300),
                             ),
                           ),
                         ),
@@ -222,14 +234,12 @@ class _LoginScreenState extends State<LoginScreen>
       }) {
     return GestureDetector(
       onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
+      child: Container(
         width: double.infinity,
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: isOutlined
-              ? Colors.transparent
-              : Colors.white,
+          color:
+          isOutlined ? Colors.transparent : Colors.white,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: Colors.white.withOpacity(0.5),
@@ -252,7 +262,8 @@ class _LoginScreenState extends State<LoginScreen>
               decoration: BoxDecoration(
                 color: isOutlined
                     ? Colors.white.withOpacity(0.15)
-                    : const Color(0xFF0D47A1).withOpacity(0.1),
+                    : const Color(0xFF0D47A1)
+                    .withOpacity(0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(

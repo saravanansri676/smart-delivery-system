@@ -6,7 +6,18 @@ import 'delivery_status_screen.dart';
 import 'manager_profile_screen.dart';
 
 class ManagerHome extends StatelessWidget {
-  const ManagerHome({super.key});
+  final String managerId;
+  final String managerName;
+  final String managerEmail;
+  final String companyName;
+
+  const ManagerHome({
+    super.key,
+    required this.managerId,
+    required this.managerName,
+    required this.managerEmail,
+    required this.companyName,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -20,12 +31,20 @@ class ManagerHome extends StatelessWidget {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.account_circle_rounded,
-                color: Colors.white, size: 28),
+            icon: const Icon(
+              Icons.account_circle_rounded,
+              color: Colors.white,
+              size: 28,
+            ),
             onPressed: () => Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (_) => const ManagerProfileScreen(),
+                builder: (_) => ManagerProfileScreen(
+                  managerId: managerId,
+                  managerName: managerName,
+                  managerEmail: managerEmail,
+                  companyName: companyName,
+                ),
               ),
             ),
           ),
@@ -42,14 +61,18 @@ class ManagerHome extends StatelessWidget {
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
-                  colors: [Color(0xFF0D47A1), Color(0xFF1976D2)],
+                  colors: [
+                    Color(0xFF0D47A1),
+                    Color(0xFF1976D2)
+                  ],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
                 borderRadius: BorderRadius.circular(20),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF0D47A1).withOpacity(0.3),
+                    color: const Color(0xFF0D47A1)
+                        .withOpacity(0.3),
                     blurRadius: 20,
                     offset: const Offset(0, 8),
                   ),
@@ -61,7 +84,8 @@ class ManagerHome extends StatelessWidget {
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       color: Colors.white.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius:
+                      BorderRadius.circular(12),
                     ),
                     child: const Icon(
                       Icons.admin_panel_settings_rounded,
@@ -70,25 +94,36 @@ class ManagerHome extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 16),
-                  const Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Welcome, Manager',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.w700,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment:
+                      CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Welcome, $managerName!',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
-                      ),
-                      Text(
-                        'Smart Delivery System',
-                        style: TextStyle(
-                          color: Colors.white70,
-                          fontSize: 14,
+                        Text(
+                          companyName,
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 13,
+                          ),
                         ),
-                      ),
-                    ],
+                        Text(
+                          managerId,
+                          style: const TextStyle(
+                            color: Colors.white60,
+                            fontSize: 12,
+                            fontFamily: 'monospace',
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -104,7 +139,6 @@ class ManagerHome extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-            // Menu grid
             GridView.count(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
@@ -146,8 +180,8 @@ class ManagerHome extends StatelessWidget {
                   title: 'Live Status',
                   subtitle: 'Delivery dashboard',
                   color: const Color(0xFF6A1B9A),
-                  onTap: () => _navigate(
-                      context, const DeliveryStatusScreen()),
+                  onTap: () => _navigate(context,
+                      const DeliveryStatusScreen()),
                 ),
               ],
             ),
@@ -171,7 +205,8 @@ class ManagerHome extends StatelessWidget {
                   parent: a, curve: Curves.easeOut)),
               child: child,
             ),
-        transitionDuration: const Duration(milliseconds: 300),
+        transitionDuration:
+        const Duration(milliseconds: 300),
       ),
     );
   }
