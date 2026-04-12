@@ -1,14 +1,21 @@
 import 'package:flutter/material.dart';
-import 'register_driver_screen.dart';
 import 'view_route_screen.dart';
 import 'fuel_status_screen.dart';
 import 'report_incident_screen.dart';
 import 'map_route_screen.dart';
 import 'weather_screen.dart';
 import 'driver_profile_screen.dart';
+import 'driver_register_screen.dart';
 
 class DriverHome extends StatefulWidget {
-  const DriverHome({super.key});
+  final String driverIdFromLogin;
+  final String driverName;
+
+  const DriverHome({
+    super.key,
+    this.driverIdFromLogin = '',
+    this.driverName = '',
+  });
 
   @override
   State<DriverHome> createState() => _DriverHomeState();
@@ -17,6 +24,15 @@ class DriverHome extends StatefulWidget {
 class _DriverHomeState extends State<DriverHome> {
   String driverId = '';
   final _driverIdController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.driverIdFromLogin.isNotEmpty) {
+      driverId = widget.driverIdFromLogin;
+      _driverIdController.text = widget.driverIdFromLogin;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -128,7 +144,7 @@ class _DriverHomeState extends State<DriverHome> {
               controller: _driverIdController,
               decoration: InputDecoration(
                 labelText: 'Enter Your Driver ID',
-                hintText: 'e.g. DRV001',
+                hintText: 'e.g. DR001',
                 prefixIcon: const Icon(
                     Icons.badge_rounded,
                     color: Color(0xFF0D47A1)),
@@ -176,15 +192,6 @@ class _DriverHomeState extends State<DriverHome> {
               mainAxisSpacing: 16,
               childAspectRatio: 1.1,
               children: [
-                _buildMenuCard(
-                  context,
-                  icon: Icons.person_add_rounded,
-                  title: 'Register',
-                  subtitle: 'Join as driver',
-                  color: const Color(0xFF0D47A1),
-                  onTap: () => _navigate(
-                      context, const RegisterDriverScreen()),
-                ),
                 _buildMenuCard(
                   context,
                   icon: Icons.route_rounded,

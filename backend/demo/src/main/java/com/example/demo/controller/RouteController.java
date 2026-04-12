@@ -1,20 +1,20 @@
 package com.example.demo.controller;
 
 import com.example.demo.model.Package;
-import com.example.demo.repository.DataStore;
+import com.example.demo.repository.PackageRepository;
 import com.example.demo.service.TSPService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/route")
 public class RouteController {
 
     @Autowired
-    private DataStore dataStore;
+    private PackageRepository packageRepository;
 
     @Autowired
     private TSPService tspService;
@@ -26,34 +26,37 @@ public class RouteController {
             @RequestParam double startLat,
             @RequestParam double startLon) {
 
-        // Get packages assigned to this driver
-        List<Package> assignedPackages = new ArrayList<>();
-        for (Package pkg : dataStore.packages) {
-            if (driverId.equals(pkg.getAssignedDriverId())
-                    && !"DELIVERED".equals(pkg.getStatus())) {
-                assignedPackages.add(pkg);
-            }
-        }
+        // Fetch from DB using JPA — not DataStore
+        List<Package> assignedPackages =
+                packageRepository
+                        .findByAssignedDriverId(driverId)
+                        .stream()
+                        .filter(pkg -> !"DELIVERED"
+                                .equals(pkg.getStatus()))
+                        .collect(Collectors.toList());
 
         if (assignedPackages.isEmpty()) {
-            return new ArrayList<>();
+            return List.of();
         }
 
-        // Run TSP optimization with priority
         return tspService.optimizeWithPriority(
                 assignedPackages, startLat, startLon);
     }
 
     // Mark a package as delivered
     @PutMapping("/delivered/{packageId}")
-    public String markDelivered(@PathVariable String packageId) {
-        for (Package pkg : dataStore.packages) {
-            if (pkg.getPackageId().equals(packageId)) {
-                pkg.setStatus("DELIVERED");
-                return "Package " + packageId + " marked as delivered!";
-            }
-        }
-        return "Package not found";
+    public String markDelivered(
+            @PathVariable String packageId) {
+
+        return packageRepository
+                .findById(packageId)
+                .map(pkg -> {
+                    pkg.setStatus("DELIVERED");
+                    packageRepository.save(pkg);
+                    return "Package " + packageId
+                            + " marked as delivered!";
+                })
+                .orElse("Package not found");
     }
 
     // Get total distance of optimized route
@@ -63,18 +66,20 @@ public class RouteController {
             @RequestParam double startLat,
             @RequestParam double startLon) {
 
-        List<Package> assignedPackages = new ArrayList<>();
-        for (Package pkg : dataStore.packages) {
-            if (driverId.equals(pkg.getAssignedDriverId())
-                    && !"DELIVERED".equals(pkg.getStatus())) {
-                assignedPackages.add(pkg);
-            }
-        }
+        List<Package> assignedPackages =
+                packageRepository
+                        .findByAssignedDriverId(driverId)
+                        .stream()
+                        .filter(pkg -> !"DELIVERED"
+                                .equals(pkg.getStatus()))
+                        .collect(Collectors.toList());
 
-        if (assignedPackages.isEmpty()) return "No packages assigned";
+        if (assignedPackages.isEmpty())
+            return "No packages assigned";
 
-        List<Package> optimized = tspService.optimizeWithPriority(
-                assignedPackages, startLat, startLon);
+        List<Package> optimized =
+                tspService.optimizeWithPriority(
+                        assignedPackages, startLat, startLon);
 
         double totalDistance = 0;
         double currentLat = startLat;
@@ -89,6 +94,8 @@ public class RouteController {
             currentLon = pkg.getLongitude();
         }
 
-        return String.format("Total optimized distance: %.2f km", totalDistance);
+        return String.format(
+                "Total optimized distance: %.2f km",
+                totalDistance);
     }
 }

@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 import 'add_package_screen.dart';
 import 'view_packages_screen.dart';
 import 'view_drivers_screen.dart';
 import 'delivery_status_screen.dart';
 import 'manager_profile_screen.dart';
+import 'driver_request_screen.dart';
 
-class ManagerHome extends StatelessWidget {
+class ManagerHome extends StatefulWidget {
   final String managerId;
   final String managerName;
   final String managerEmail;
@@ -20,6 +24,195 @@ class ManagerHome extends StatelessWidget {
   });
 
   @override
+  State<ManagerHome> createState() => _ManagerHomeState();
+}
+
+class _ManagerHomeState extends State<ManagerHome> {
+  final String baseUrl = 'http://10.0.2.2:8080';
+
+  List<dynamic> _pendingRequests = [];
+  Timer? _pollingTimer;
+  bool _popupShown = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Check immediately on load
+    _checkPendingRequests();
+    // Then check every 30 seconds
+    _pollingTimer = Timer.periodic(
+      const Duration(seconds: 30),
+          (_) => _checkPendingRequests(),
+    );
+  }
+
+  @override
+  void dispose() {
+    _pollingTimer?.cancel();
+    super.dispose();
+  }
+
+  // ── Poll backend for pending driver requests ─────────────
+  Future<void> _checkPendingRequests() async {
+    try {
+      final response = await http.get(Uri.parse(
+          '$baseUrl/driver-requests/pending'
+              '/${widget.managerId}'));
+
+      if (response.statusCode == 200) {
+        final List<dynamic> requests =
+        jsonDecode(response.body);
+
+        // Only show popup if there are new requests
+        // and popup isn't already visible
+        if (requests.isNotEmpty && !_popupShown) {
+          setState(() => _pendingRequests = requests);
+          _showRequestPopup();
+        } else {
+          setState(() => _pendingRequests = requests);
+        }
+      }
+    } catch (e) {
+      // Silent fail — don't interrupt manager's workflow
+      debugPrint('Polling error: $e');
+    }
+  }
+
+  // ── Show notification popup ──────────────────────────────
+  void _showRequestPopup() {
+    _popupShown = true;
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (_) => Dialog(
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20)),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Icon
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0D47A1)
+                      .withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.person_add_rounded,
+                  color: Color(0xFF0D47A1),
+                  size: 40,
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              const Text(
+                'New Driver Request!',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF1A1A2E),
+                ),
+              ),
+              const SizedBox(height: 8),
+
+              Text(
+                '${_pendingRequests.length} driver registration '
+                    '${_pendingRequests.length == 1 ? 'request' : 'requests'} '
+                    'waiting for your approval.',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey.shade600,
+                  height: 1.4,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+
+              // Buttons
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        _popupShown = false;
+                      },
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius:
+                          BorderRadius.circular(10),
+                        ),
+                      ),
+                      child: const Text('Later'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        _popupShown = false;
+                        _navigate(
+                          context,
+                          DriverRequestScreen(
+                            managerId: widget.managerId,
+                            pendingRequests:
+                            _pendingRequests,
+                            onRequestProcessed:
+                            _checkPendingRequests,
+                          ),
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor:
+                        const Color(0xFF0D47A1),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius:
+                          BorderRadius.circular(10),
+                        ),
+                      ),
+                      child: const Text('See Details'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    ).then((_) => _popupShown = false);
+  }
+
+  // ── Navigation ───────────────────────────────────────────
+  void _navigate(BuildContext context, Widget screen) {
+    Navigator.push(
+      context,
+      PageRouteBuilder(
+        pageBuilder: (_, a, b) => screen,
+        transitionsBuilder: (_, a, b, child) =>
+            SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(1, 0),
+                end: Offset.zero,
+              ).animate(CurvedAnimation(
+                  parent: a, curve: Curves.easeOut)),
+              child: child,
+            ),
+        transitionDuration:
+        const Duration(milliseconds: 300),
+      ),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF0F4FF),
@@ -30,6 +223,61 @@ class ManagerHome extends StatelessWidget {
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
+          // Notification bell — shows badge if pending
+          Stack(
+            children: [
+              IconButton(
+                icon: const Icon(
+                  Icons.notifications_rounded,
+                  color: Colors.white,
+                  size: 28,
+                ),
+                onPressed: () {
+                  if (_pendingRequests.isNotEmpty) {
+                    _navigate(
+                      context,
+                      DriverRequestScreen(
+                        managerId: widget.managerId,
+                        pendingRequests: _pendingRequests,
+                        onRequestProcessed:
+                        _checkPendingRequests,
+                      ),
+                    );
+                  } else {
+                    ScaffoldMessenger.of(context)
+                        .showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                            'No pending driver requests'),
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  }
+                },
+              ),
+              // Badge
+              if (_pendingRequests.isNotEmpty)
+                Positioned(
+                  right: 8,
+                  top: 8,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: const BoxDecoration(
+                      color: Colors.red,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Text(
+                      '${_pendingRequests.length}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
           IconButton(
             icon: const Icon(
               Icons.account_circle_rounded,
@@ -40,10 +288,10 @@ class ManagerHome extends StatelessWidget {
               context,
               MaterialPageRoute(
                 builder: (_) => ManagerProfileScreen(
-                  managerId: managerId,
-                  managerName: managerName,
-                  managerEmail: managerEmail,
-                  companyName: companyName,
+                  managerId: widget.managerId,
+                  managerName: widget.managerName,
+                  managerEmail: widget.managerEmail,
+                  companyName: widget.companyName,
                 ),
               ),
             ),
@@ -100,7 +348,7 @@ class ManagerHome extends StatelessWidget {
                       CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Welcome, $managerName!',
+                          'Welcome, ${widget.managerName}!',
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 18,
@@ -108,14 +356,14 @@ class ManagerHome extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          companyName,
+                          widget.companyName,
                           style: const TextStyle(
                             color: Colors.white70,
                             fontSize: 13,
                           ),
                         ),
                         Text(
-                          managerId,
+                          widget.managerId,
                           style: const TextStyle(
                             color: Colors.white60,
                             fontSize: 12,
@@ -129,6 +377,71 @@ class ManagerHome extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 28),
+
+            // Pending requests banner
+            if (_pendingRequests.isNotEmpty)
+              GestureDetector(
+                onTap: () => _navigate(
+                  context,
+                  DriverRequestScreen(
+                    managerId: widget.managerId,
+                    pendingRequests: _pendingRequests,
+                    onRequestProcessed:
+                    _checkPendingRequests,
+                  ),
+                ),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  margin: const EdgeInsets.only(bottom: 20),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.shade50,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                        color: Colors.orange.shade300),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.person_add_rounded,
+                        color: Colors.orange,
+                        size: 28,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment:
+                          CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '${_pendingRequests.length} Pending Driver '
+                                  '${_pendingRequests.length == 1 ? 'Request' : 'Requests'}',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 15,
+                                color: Color(0xFF1A1A2E),
+                              ),
+                            ),
+                            const Text(
+                              'Tap to review and approve',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.orange,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Icon(
+                        Icons.arrow_forward_ios_rounded,
+                        size: 16,
+                        color: Colors.orange,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
             const Text(
               'QUICK ACTIONS',
               style: TextStyle(
@@ -139,6 +452,7 @@ class ManagerHome extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
+
             GridView.count(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
@@ -187,26 +501,6 @@ class ManagerHome extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  void _navigate(BuildContext context, Widget screen) {
-    Navigator.push(
-      context,
-      PageRouteBuilder(
-        pageBuilder: (_, a, b) => screen,
-        transitionsBuilder: (_, a, b, child) =>
-            SlideTransition(
-              position: Tween<Offset>(
-                begin: const Offset(1, 0),
-                end: Offset.zero,
-              ).animate(CurvedAnimation(
-                  parent: a, curve: Curves.easeOut)),
-              child: child,
-            ),
-        transitionDuration:
-        const Duration(milliseconds: 300),
       ),
     );
   }

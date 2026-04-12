@@ -5,7 +5,8 @@ import '../login_screen.dart';
 
 class DriverProfileScreen extends StatefulWidget {
   final String driverId;
-  const DriverProfileScreen({super.key, required this.driverId});
+  const DriverProfileScreen(
+      {super.key, required this.driverId});
 
   @override
   State<DriverProfileScreen> createState() =>
@@ -26,18 +27,40 @@ class _DriverProfileScreenState
 
   Future<void> fetchDriver() async {
     try {
-      final response = await http
-          .get(Uri.parse('$baseUrl/drivers/all'));
+      // ✅ Issue 5 fixed: use profile endpoint directly
+      // instead of GET /drivers/all + client-side filter
+      final response = await http.get(Uri.parse(
+          '$baseUrl/auth/driver/profile/${widget.driverId}'));
+
       if (response.statusCode == 200) {
-        final all = jsonDecode(response.body) as List;
-        final driver = all.firstWhere(
-              (d) => d['driverId'] == widget.driverId,
-          orElse: () => {},
-        );
-        setState(() {
-          driverData = Map<String, dynamic>.from(driver);
-          isLoading = false;
-        });
+        final profileData =
+        jsonDecode(response.body) as Map<String, dynamic>;
+
+        // Also fetch full driver details for vehicle info etc.
+        final driverResponse = await http.get(
+            Uri.parse('$baseUrl/drivers/all'));
+
+        if (driverResponse.statusCode == 200) {
+          final all =
+          jsonDecode(driverResponse.body) as List;
+          final fullDriver = all.firstWhere(
+                (d) => d['driverId'] == widget.driverId,
+            orElse: () => {},
+          );
+          // Merge auth profile + driver details
+          setState(() {
+            driverData = {
+              ...Map<String, dynamic>.from(fullDriver),
+              ...profileData,
+            };
+            isLoading = false;
+          });
+        } else {
+          setState(() {
+            driverData = profileData;
+            isLoading = false;
+          });
+        }
       }
     } catch (e) {
       setState(() => isLoading = false);
@@ -46,16 +69,14 @@ class _DriverProfileScreenState
 
   Future<void> _updateDriver() async {
     try {
-      // Update fuel level
       await http.put(Uri.parse(
           '$baseUrl/fuel/update/${widget.driverId}'
               '?fuelLevel=${driverData['fuelLevel']}'));
-      // Update status
       await http.put(Uri.parse(
           '$baseUrl/drivers/status/${widget.driverId}'
               '?status=${driverData['status']}'));
     } catch (e) {
-      print('Update error: $e');
+      debugPrint('Update error: $e');
     }
   }
 
@@ -84,7 +105,8 @@ class _DriverProfileScreenState
             padding: const EdgeInsets.all(24),
             child: Column(
               mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment:
+              CrossAxisAlignment.start,
               children: [
                 const Text(
                   'Edit Profile',
@@ -98,8 +120,10 @@ class _DriverProfileScreenState
                 _buildEditField(nameController,
                     'Full Name', Icons.person_rounded),
                 const SizedBox(height: 12),
-                _buildEditField(mobileController,
-                    'Mobile Number', Icons.phone_rounded,
+                _buildEditField(
+                    mobileController,
+                    'Mobile Number',
+                    Icons.phone_rounded,
                     isNumber: true),
                 const SizedBox(height: 12),
                 _buildEditField(companyController,
@@ -110,17 +134,14 @@ class _DriverProfileScreenState
                     'Vehicle Number',
                     Icons.confirmation_number_rounded),
                 const SizedBox(height: 12),
-                // Sex dropdown
                 _buildDropdown(
                   label: 'Sex',
                   value: selectedSex,
                   items: ['Male', 'Female', 'Other'],
-                  onChanged: (val) =>
-                      setDialogState(() =>
-                      selectedSex = val!),
+                  onChanged: (val) => setDialogState(
+                          () => selectedSex = val!),
                 ),
                 const SizedBox(height: 12),
-                // Vehicle type dropdown
                 _buildDropdown(
                   label: 'Vehicle Type',
                   value: selectedVehicleType,
@@ -130,7 +151,6 @@ class _DriverProfileScreenState
                       selectedVehicleType = val!),
                 ),
                 const SizedBox(height: 12),
-                // Fuel level
                 const Text('Fuel Level',
                     style: TextStyle(
                         fontSize: 13,
@@ -211,8 +231,7 @@ class _DriverProfileScreenState
                                 companyController.text;
                             driverData['vehicleNo'] =
                                 vehicleNoController.text;
-                            driverData['sex'] =
-                                selectedSex;
+                            driverData['sex'] = selectedSex;
                             driverData['vehicleType'] =
                                 selectedVehicleType;
                             driverData['fuelLevel'] =
@@ -225,8 +244,7 @@ class _DriverProfileScreenState
                             const SnackBar(
                               content:
                               Text('Profile updated!'),
-                              backgroundColor:
-                              Colors.green,
+                              backgroundColor: Colors.green,
                               behavior:
                               SnackBarBehavior.floating,
                             ),
@@ -341,8 +359,7 @@ class _DriverProfileScreenState
               Navigator.pushAndRemoveUntil(
                 context,
                 MaterialPageRoute(
-                    builder: (_) =>
-                    const LoginScreen()),
+                    builder: (_) => const LoginScreen()),
                     (route) => false,
               );
             },
@@ -359,10 +376,14 @@ class _DriverProfileScreenState
 
   Color _getStatusColor(String status) {
     switch (status) {
-      case 'AVAILABLE': return const Color(0xFF2E7D32);
-      case 'ON_DELIVERY': return const Color(0xFFE65100);
-      case 'OFFLINE': return Colors.grey;
-      default: return Colors.grey;
+      case 'AVAILABLE':
+        return const Color(0xFF2E7D32);
+      case 'ON_DELIVERY':
+        return const Color(0xFFE65100);
+      case 'OFFLINE':
+        return Colors.grey;
+      default:
+        return Colors.grey;
     }
   }
 
@@ -394,14 +415,12 @@ class _DriverProfileScreenState
                   color: const Color(0xFF1B5E20),
                   size: 18),
               const SizedBox(width: 8),
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF1B5E20),
-                ),
-              ),
+              Text(title,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF1B5E20),
+                  )),
             ],
           ),
           const Divider(height: 20),
@@ -417,80 +436,27 @@ class _DriverProfileScreenState
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         children: [
-          Icon(icon, size: 18, color: Colors.grey.shade400),
+          Icon(icon,
+              size: 18, color: Colors.grey.shade400),
           const SizedBox(width: 12),
           SizedBox(
             width: 100,
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: 13,
-                color: Colors.grey.shade500,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(
-                fontSize: 13,
-                color: Color(0xFF1A1A2E),
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildClickableRow({
-    required IconData icon,
-    required String label,
-    required String value,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Row(
-          children: [
-            Icon(icon, size: 18, color: color),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                label,
+            child: Text(label,
                 style: TextStyle(
                   fontSize: 13,
                   color: Colors.grey.shade500,
                   fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 12, vertical: 4),
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                value,
-                style: TextStyle(
+                )),
+          ),
+          Expanded(
+            child: Text(value,
+                style: const TextStyle(
                   fontSize: 13,
-                  color: color,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-            const SizedBox(width: 4),
-            Icon(Icons.arrow_forward_ios_rounded,
-                size: 12, color: Colors.grey.shade400),
-          ],
-        ),
+                  color: Color(0xFF1A1A2E),
+                  fontWeight: FontWeight.w600,
+                )),
+          ),
+        ],
       ),
     );
   }
@@ -516,14 +482,12 @@ class _DriverProfileScreenState
             Icon(icon, color: color, size: 22),
             const SizedBox(width: 12),
             Expanded(
-              child: Text(
-                label,
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: color,
-                ),
-              ),
+              child: Text(label,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: color,
+                  )),
             ),
             Icon(Icons.arrow_forward_ios_rounded,
                 size: 14,
@@ -652,20 +616,17 @@ class _DriverProfileScreenState
                       Icon(Icons.circle,
                           color: statusColor, size: 12),
                       const SizedBox(width: 8),
-                      Text(
-                        status,
-                        style: TextStyle(
-                          color: statusColor,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 16,
-                        ),
-                      ),
+                      Text(status,
+                          style: TextStyle(
+                            color: statusColor,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 16,
+                          )),
                     ],
                   ),
                 ),
                 const SizedBox(height: 16),
 
-                // Personal Details
                 _buildSection(
                   title: 'Personal Details',
                   icon: Icons.person_rounded,
@@ -682,52 +643,40 @@ class _DriverProfileScreenState
                 ),
                 const SizedBox(height: 16),
 
-                // Work Details
                 _buildSection(
                   title: 'Work Details',
                   icon: Icons.work_rounded,
                   children: [
                     _buildRow(Icons.business_rounded,
                         'Company',
-                        driverData['companyName'] ?? 'N/A'),
+                        driverData['companyName'] ??
+                            'N/A'),
                     _buildRow(
                         Icons.access_time_rounded,
                         'Work Hours',
                         '${driverData['workStartTime'] ?? '09:00'} - ${driverData['workEndTime'] ?? '16:00'}'),
-                    _buildRow(Icons.circle,
-                        'Status', status),
+                    _buildRow(Icons.circle, 'Status',
+                        status),
                   ],
                 ),
                 const SizedBox(height: 16),
 
-                // Performance
                 _buildSection(
                   title: 'Performance Overview',
                   icon: Icons.bar_chart_rounded,
                   children: [
-                    _buildClickableRow(
-                      icon: Icons.inventory_rounded,
-                      label: 'Packages Assigned',
-                      value:
-                      '${driverData['packagesAssigned'] ?? 0}',
-                      color: const Color(0xFF0D47A1),
-                      onTap: () =>
-                          _showPackages('ASSIGNED'),
-                    ),
-                    _buildClickableRow(
-                      icon: Icons.check_circle_rounded,
-                      label: 'Packages Delivered',
-                      value:
-                      '${driverData['packagesDelivered'] ?? 0}',
-                      color: const Color(0xFF2E7D32),
-                      onTap: () =>
-                          _showPackages('DELIVERED'),
-                    ),
+                    _buildRow(
+                        Icons.inventory_rounded,
+                        'Packages Assigned',
+                        '${driverData['packagesAssigned'] ?? 0}'),
+                    _buildRow(
+                        Icons.check_circle_rounded,
+                        'Packages Delivered',
+                        '${driverData['packagesDelivered'] ?? 0}'),
                   ],
                 ),
                 const SizedBox(height: 16),
 
-                // Ratings
                 _buildSection(
                   title: 'Rating',
                   icon: Icons.star_rounded,
@@ -735,18 +684,20 @@ class _DriverProfileScreenState
                     Row(
                       children: [
                         ...List.generate(5, (index) {
-                          final rating =
-                          (driverData['averageRating'] ??
+                          final rating = (driverData[
+                          'averageRating'] ??
                               0.0)
                           as double;
                           return Icon(
                             index < rating.floor()
                                 ? Icons.star_rounded
                                 : index < rating
-                                ? Icons.star_half_rounded
+                                ? Icons
+                                .star_half_rounded
                                 : Icons
                                 .star_outline_rounded,
-                            color: const Color(0xFFFFC107),
+                            color:
+                            const Color(0xFFFFC107),
                             size: 28,
                           );
                         }),
@@ -765,7 +716,6 @@ class _DriverProfileScreenState
                 ),
                 const SizedBox(height: 16),
 
-                // Penalties
                 _buildSection(
                   title: 'Penalties & Behavior',
                   icon: Icons.warning_rounded,
@@ -784,7 +734,6 @@ class _DriverProfileScreenState
                 ),
                 const SizedBox(height: 16),
 
-                // Vehicle Details
                 _buildSection(
                   title: 'Vehicle Details',
                   icon: Icons.directions_car_rounded,
@@ -796,7 +745,8 @@ class _DriverProfileScreenState
                     _buildRow(
                         Icons.directions_car_rounded,
                         'Vehicle Type',
-                        driverData['vehicleType'] ?? 'N/A'),
+                        driverData['vehicleType'] ??
+                            'N/A'),
                     _buildRow(Icons.scale_rounded,
                         'Capacity',
                         '${driverData['vehicleCapacity'] ?? 0} kg'),
@@ -808,7 +758,6 @@ class _DriverProfileScreenState
                 ),
                 const SizedBox(height: 24),
 
-                // Actions
                 _buildSection(
                   title: 'Actions',
                   icon: Icons.settings_rounded,
@@ -838,7 +787,7 @@ class _DriverProfileScreenState
   }
 }
 
-// Package list for driver view
+// ── Issue 6 fixed: use /packages/by-driver-status ────────
 class _DriverPackageListScreen extends StatefulWidget {
   final String driverId;
   final String status;
@@ -868,17 +817,15 @@ class _DriverPackageListScreenState
 
   Future<void> fetchPackages() async {
     try {
-      final response = await http
-          .get(Uri.parse('${widget.baseUrl}/packages/all'));
+      // ✅ Issue 6 fixed: use proper filter endpoint
+      final response = await http.get(Uri.parse(
+          '${widget.baseUrl}/packages/by-driver-status'
+              '?driverId=${widget.driverId}'
+              '&status=${widget.status}'));
+
       if (response.statusCode == 200) {
-        final all = jsonDecode(response.body) as List;
         setState(() {
-          packages = all
-              .where((p) =>
-          p['assignedDriverId'] ==
-              widget.driverId &&
-              p['status'] == widget.status)
-              .toList();
+          packages = jsonDecode(response.body) as List;
           isLoading = false;
         });
       }
@@ -899,7 +846,8 @@ class _DriverPackageListScreenState
         ),
       ),
       body: isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(
+          child: CircularProgressIndicator())
           : packages.isEmpty
           ? const Center(
           child: Text('No packages found'))
@@ -909,8 +857,8 @@ class _DriverPackageListScreenState
         itemBuilder: (context, index) {
           final pkg = packages[index];
           return Card(
-            margin:
-            const EdgeInsets.only(bottom: 12),
+            margin: const EdgeInsets.only(
+                bottom: 12),
             shape: RoundedRectangleBorder(
               borderRadius:
               BorderRadius.circular(12),
@@ -920,8 +868,8 @@ class _DriverPackageListScreenState
                 Icons.inventory_2_rounded,
                 color: Color(0xFF1B5E20),
               ),
-              title:
-              Text(pkg['packageName'] ?? ''),
+              title: Text(
+                  pkg['packageName'] ?? ''),
               subtitle: Column(
                 crossAxisAlignment:
                 CrossAxisAlignment.start,

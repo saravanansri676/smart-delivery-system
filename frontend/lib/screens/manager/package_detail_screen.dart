@@ -4,25 +4,33 @@ import 'dart:convert';
 
 class PackageDetailScreen extends StatelessWidget {
   final Map package;
-  const PackageDetailScreen({super.key, required this.package});
+  const PackageDetailScreen(
+      {super.key, required this.package});
 
+  // ✅ Issue 9 fixed: MOVING status removed
   Color _getStatusColor(String status) {
     switch (status) {
-      case 'IN_STORE': return const Color(0xFF1565C0);
-      case 'ASSIGNED': return const Color(0xFFE65100);
-      case 'MOVING': return const Color(0xFF6A1B9A);
-      case 'DELIVERED': return const Color(0xFF2E7D32);
-      default: return Colors.grey;
+      case 'IN_STORE':
+        return const Color(0xFF1565C0);
+      case 'ASSIGNED':
+        return const Color(0xFFE65100);
+      case 'DELIVERED':
+        return const Color(0xFF2E7D32);
+      default:
+        return Colors.grey;
     }
   }
 
   IconData _getStatusIcon(String status) {
     switch (status) {
-      case 'IN_STORE': return Icons.store_rounded;
-      case 'ASSIGNED': return Icons.assignment_rounded;
-      case 'MOVING': return Icons.local_shipping_rounded;
-      case 'DELIVERED': return Icons.check_circle_rounded;
-      default: return Icons.help_rounded;
+      case 'IN_STORE':
+        return Icons.store_rounded;
+      case 'ASSIGNED':
+        return Icons.assignment_rounded;
+      case 'DELIVERED':
+        return Icons.check_circle_rounded;
+      default:
+        return Icons.help_rounded;
     }
   }
 
@@ -72,8 +80,10 @@ class PackageDetailScreen extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(12),
+                      color:
+                      Colors.white.withOpacity(0.2),
+                      borderRadius:
+                      BorderRadius.circular(12),
                     ),
                     child: Icon(
                       _getStatusIcon(status),
@@ -110,8 +120,10 @@ class PackageDetailScreen extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(
                         horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(20),
+                      color:
+                      Colors.white.withOpacity(0.2),
+                      borderRadius:
+                      BorderRadius.circular(20),
                     ),
                     child: Text(
                       status,
@@ -127,7 +139,6 @@ class PackageDetailScreen extends StatelessWidget {
             ),
             const SizedBox(height: 20),
 
-            // Package info
             _buildSection(
               title: 'Package Information',
               icon: Icons.inventory_2_rounded,
@@ -136,8 +147,7 @@ class PackageDetailScreen extends StatelessWidget {
                     Icons.qr_code_rounded,
                     'Package ID',
                     package['packageId'] ?? ''),
-                _buildDetailRow(
-                    Icons.scale_rounded,
+                _buildDetailRow(Icons.scale_rounded,
                     'Weight',
                     '${package['weightKg'] ?? 0} kg'),
                 _buildDetailRow(
@@ -148,12 +158,12 @@ class PackageDetailScreen extends StatelessWidget {
                     Icons.schedule_rounded,
                     'Deadline',
                     package['deadlineDate'] ??
-                        package['deadline'] ?? ''),
+                        package['deadline'] ??
+                        ''),
               ],
             ),
             const SizedBox(height: 16),
 
-            // Receiver info
             _buildSection(
               title: 'Receiver Information',
               icon: Icons.person_rounded,
@@ -179,9 +189,10 @@ class PackageDetailScreen extends StatelessWidget {
             ),
             const SizedBox(height: 16),
 
-            // Delivery info
             if (package['assignedDriverId'] != null &&
-                package['assignedDriverId'].toString().isNotEmpty)
+                package['assignedDriverId']
+                    .toString()
+                    .isNotEmpty)
               _buildSection(
                 title: 'Delivery Information',
                 icon: Icons.local_shipping_rounded,
@@ -198,7 +209,6 @@ class PackageDetailScreen extends StatelessWidget {
               ),
             const SizedBox(height: 16),
 
-            // QR Code section
             _buildSection(
               title: 'Package QR Code',
               icon: Icons.qr_code_2_rounded,
@@ -208,7 +218,8 @@ class PackageDetailScreen extends StatelessWidget {
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius:
+                      BorderRadius.circular(12),
                       border: Border.all(
                           color: Colors.grey.shade200),
                     ),
@@ -267,17 +278,16 @@ class PackageDetailScreen extends StatelessWidget {
           Row(
             children: [
               Icon(icon,
-                  color: const Color(0xFF0D47A1), size: 18),
+                  color: const Color(0xFF0D47A1),
+                  size: 18),
               const SizedBox(width: 8),
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF0D47A1),
-                  letterSpacing: 0.5,
-                ),
-              ),
+              Text(title,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF0D47A1),
+                    letterSpacing: 0.5,
+                  )),
             ],
           ),
           const Divider(height: 20),
@@ -294,28 +304,25 @@ class PackageDetailScreen extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 18, color: Colors.grey.shade400),
+          Icon(icon,
+              size: 18, color: Colors.grey.shade400),
           const SizedBox(width: 12),
           SizedBox(
             width: 90,
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: 13,
-                color: Colors.grey.shade500,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
+            child: Text(label,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Colors.grey.shade500,
+                  fontWeight: FontWeight.w500,
+                )),
           ),
           Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(
-                fontSize: 13,
-                color: Color(0xFF1A1A2E),
-                fontWeight: FontWeight.w600,
-              ),
-            ),
+            child: Text(value,
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: Color(0xFF1A1A2E),
+                  fontWeight: FontWeight.w600,
+                )),
           ),
         ],
       ),

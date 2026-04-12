@@ -29,10 +29,6 @@ class _ManagerProfileScreenState
   bool isLoading = true;
   final String baseUrl = 'http://10.0.2.2:8080';
 
-  // Hardcoded manager ID for now
-  // In future this will come from login session
-  final String managerId = 'MGR001';
-
   @override
   void initState() {
     super.initState();

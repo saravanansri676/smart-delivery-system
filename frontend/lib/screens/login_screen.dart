@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 import 'manager/manager_login_screen.dart';
 import 'driver/driver_home.dart';
+import 'driver/driver_login_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -191,7 +192,7 @@ class _LoginScreenState extends State<LoginScreen>
                             context,
                             PageRouteBuilder(
                               pageBuilder: (_, a, b) =>
-                              const DriverHome(),
+                              const DriverLoginScreen(),
                               transitionsBuilder:
                                   (_, a, b, child) =>
                                   FadeTransition(

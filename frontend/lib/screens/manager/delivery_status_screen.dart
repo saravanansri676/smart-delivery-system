@@ -39,25 +39,29 @@ class _DeliveryStatusScreenState
   }
 
   void _openPackageList(
-      BuildContext context, String filterStatus, String title) {
+      BuildContext context,
+      String filterStatus,
+      String title) {
     Navigator.push(
       context,
       PageRouteBuilder(
-        pageBuilder: (_, a, b) => _FilteredPackagesScreen(
-          filterStatus: filterStatus,
-          title: title,
-          baseUrl: baseUrl,
-        ),
+        pageBuilder: (_, a, b) =>
+            _FilteredPackagesScreen(
+              filterStatus: filterStatus,
+              title: title,
+              baseUrl: baseUrl,
+            ),
         transitionsBuilder: (_, a, b, child) =>
             SlideTransition(
               position: Tween<Offset>(
                 begin: const Offset(1, 0),
                 end: Offset.zero,
-              ).animate(
-                  CurvedAnimation(parent: a, curve: Curves.easeOut)),
+              ).animate(CurvedAnimation(
+                  parent: a, curve: Curves.easeOut)),
               child: child,
             ),
-        transitionDuration: const Duration(milliseconds: 300),
+        transitionDuration:
+        const Duration(milliseconds: 300),
       ),
     );
   }
@@ -80,11 +84,13 @@ class _DeliveryStatusScreenState
         ],
       ),
       body: isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(
+          child: CircularProgressIndicator())
           : SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment:
+          CrossAxisAlignment.start,
           children: [
             // Summary header
             Container(
@@ -99,7 +105,8 @@ class _DeliveryStatusScreenState
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
-                borderRadius: BorderRadius.circular(20),
+                borderRadius:
+                BorderRadius.circular(20),
                 boxShadow: [
                   BoxShadow(
                     color: const Color(0xFF0D47A1)
@@ -112,9 +119,11 @@ class _DeliveryStatusScreenState
               child: Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(12),
+                    padding:
+                    const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
+                      color: Colors.white
+                          .withOpacity(0.2),
                       borderRadius:
                       BorderRadius.circular(12),
                     ),
@@ -161,20 +170,19 @@ class _DeliveryStatusScreenState
             ),
             const SizedBox(height: 16),
 
-            // Clickable status cards
             _buildStatusCard(
               context,
               title: 'Packages In Store',
-              value: '${status['packagesInStore'] ?? 0}',
+              value:
+              '${status['packagesInStore'] ?? 0}',
               icon: Icons.store_rounded,
               color: const Color(0xFF1565C0),
-              filterStatus: 'IN_STORE',
-              description: 'Waiting for assignment',
+              description:
+              'Waiting for assignment',
               onTap: () => _openPackageList(
-                context,
-                'IN_STORE',
-                'Packages In Store',
-              ),
+                  context,
+                  'IN_STORE',
+                  'Packages In Store'),
             ),
             const SizedBox(height: 16),
 
@@ -185,13 +193,11 @@ class _DeliveryStatusScreenState
               '${status['packagesAssigned'] ?? 0}',
               icon: Icons.assignment_rounded,
               color: const Color(0xFFE65100),
-              filterStatus: 'ASSIGNED',
               description: 'Assigned to drivers',
               onTap: () => _openPackageList(
-                context,
-                'ASSIGNED',
-                'Assigned Packages',
-              ),
+                  context,
+                  'ASSIGNED',
+                  'Assigned Packages'),
             ),
             const SizedBox(height: 16),
 
@@ -202,13 +208,12 @@ class _DeliveryStatusScreenState
               '${status['packagesDelivered'] ?? 0}',
               icon: Icons.check_circle_rounded,
               color: const Color(0xFF2E7D32),
-              filterStatus: 'DELIVERED',
-              description: 'Successfully delivered',
+              description:
+              'Successfully delivered',
               onTap: () => _openPackageList(
-                context,
-                'DELIVERED',
-                'Delivered Packages',
-              ),
+                  context,
+                  'DELIVERED',
+                  'Delivered Packages'),
             ),
             const SizedBox(height: 20),
           ],
@@ -223,7 +228,6 @@ class _DeliveryStatusScreenState
         required String value,
         required IconData icon,
         required Color color,
-        required String filterStatus,
         required String description,
         required VoidCallback onTap,
       }) {
@@ -255,44 +259,37 @@ class _DeliveryStatusScreenState
             const SizedBox(width: 16),
             Expanded(
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment:
+                CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF1A1A2E),
-                    ),
-                  ),
+                  Text(title,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF1A1A2E),
+                      )),
                   const SizedBox(height: 2),
-                  Text(
-                    description,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey.shade500,
-                    ),
-                  ),
+                  Text(description,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade500,
+                      )),
                 ],
               ),
             ),
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                Text(
-                  value,
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w700,
-                    color: color,
-                  ),
-                ),
+                Text(value,
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.w700,
+                      color: color,
+                    )),
                 const SizedBox(height: 4),
-                Icon(
-                  Icons.arrow_forward_ios_rounded,
-                  size: 14,
-                  color: Colors.grey.shade400,
-                ),
+                Icon(Icons.arrow_forward_ios_rounded,
+                    size: 14,
+                    color: Colors.grey.shade400),
               ],
             ),
           ],
@@ -302,7 +299,8 @@ class _DeliveryStatusScreenState
   }
 }
 
-// Filtered packages screen
+// ✅ Issue 6 fixed: uses GET /packages/by-status
+// instead of GET /packages/all + client-side filter
 class _FilteredPackagesScreen extends StatefulWidget {
   final String filterStatus;
   final String title;
@@ -332,14 +330,14 @@ class _FilteredPackagesScreenState
 
   Future<void> fetchPackages() async {
     try {
-      final response = await http
-          .get(Uri.parse('${widget.baseUrl}/packages/all'));
+      // ✅ Proper filter endpoint — no client-side filtering
+      final response = await http.get(Uri.parse(
+          '${widget.baseUrl}/packages/by-status'
+              '?status=${widget.filterStatus}'));
+
       if (response.statusCode == 200) {
-        final all = jsonDecode(response.body) as List;
         setState(() {
-          packages = all
-              .where((p) => p['status'] == widget.filterStatus)
-              .toList();
+          packages = jsonDecode(response.body) as List;
           isLoading = false;
         });
       }
@@ -350,10 +348,14 @@ class _FilteredPackagesScreenState
 
   Color _getStatusColor(String status) {
     switch (status) {
-      case 'IN_STORE': return const Color(0xFF1565C0);
-      case 'ASSIGNED': return const Color(0xFFE65100);
-      case 'DELIVERED': return const Color(0xFF2E7D32);
-      default: return Colors.grey;
+      case 'IN_STORE':
+        return const Color(0xFF1565C0);
+      case 'ASSIGNED':
+        return const Color(0xFFE65100);
+      case 'DELIVERED':
+        return const Color(0xFF2E7D32);
+      default:
+        return Colors.grey;
     }
   }
 
@@ -377,7 +379,8 @@ class _FilteredPackagesScreenState
         ],
       ),
       body: isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(
+          child: CircularProgressIndicator())
           : packages.isEmpty
           ? Center(
         child: Column(
@@ -408,12 +411,13 @@ class _FilteredPackagesScreenState
               context,
               MaterialPageRoute(
                 builder: (_) =>
-                    PackageDetailScreen(package: pkg),
+                    PackageDetailScreen(
+                        package: pkg),
               ),
             ),
             child: Container(
-              margin:
-              const EdgeInsets.only(bottom: 12),
+              margin: const EdgeInsets.only(
+                  bottom: 12),
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: Colors.white,
@@ -421,8 +425,8 @@ class _FilteredPackagesScreenState
                 BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
-                    color:
-                    Colors.grey.withOpacity(0.08),
+                    color: Colors.grey
+                        .withOpacity(0.08),
                     blurRadius: 16,
                     offset: const Offset(0, 4),
                   ),
@@ -431,11 +435,14 @@ class _FilteredPackagesScreenState
               child: Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(10),
+                    padding:
+                    const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: color.withOpacity(0.1),
+                      color: color
+                          .withOpacity(0.1),
                       borderRadius:
-                      BorderRadius.circular(10),
+                      BorderRadius.circular(
+                          10),
                     ),
                     child: Icon(
                       Icons.inventory_2_rounded,
@@ -447,15 +454,18 @@ class _FilteredPackagesScreenState
                   Expanded(
                     child: Column(
                       crossAxisAlignment:
-                      CrossAxisAlignment.start,
+                      CrossAxisAlignment
+                          .start,
                       children: [
                         Text(
-                          pkg['packageName'] ?? '',
+                          pkg['packageName'] ??
+                              '',
                           style: const TextStyle(
                             fontSize: 15,
                             fontWeight:
                             FontWeight.w700,
-                            color: Color(0xFF1A1A2E),
+                            color:
+                            Color(0xFF1A1A2E),
                           ),
                         ),
                         const SizedBox(height: 4),
@@ -463,12 +473,12 @@ class _FilteredPackagesScreenState
                           pkg['address'] ?? '',
                           style: TextStyle(
                             fontSize: 12,
-                            color:
-                            Colors.grey.shade500,
+                            color: Colors
+                                .grey.shade500,
                           ),
                           maxLines: 1,
-                          overflow:
-                          TextOverflow.ellipsis,
+                          overflow: TextOverflow
+                              .ellipsis,
                         ),
                         const SizedBox(height: 4),
                         Text(
@@ -484,7 +494,8 @@ class _FilteredPackagesScreenState
                     ),
                   ),
                   const Icon(
-                    Icons.arrow_forward_ios_rounded,
+                    Icons
+                        .arrow_forward_ios_rounded,
                     size: 14,
                     color: Colors.grey,
                   ),

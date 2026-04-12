@@ -34,6 +34,8 @@ class _AddPackageScreenState extends State<AddPackageScreen> {
   TimeOfDay? _selectedTime;
   bool _isLoading = false;
   bool _isSearching = false;
+
+  // packageId now comes from backend response
   String? _generatedPackageId;
   Map<String, dynamic>? _addedPackage;
 
@@ -46,7 +48,7 @@ class _AddPackageScreenState extends State<AddPackageScreen> {
   final GeocodingService _geocodingService = GeocodingService();
   final String baseUrl = 'http://10.0.2.2:8080';
 
-  // Build final address
+  // Build final address from parts
   String get _finalAddress {
     if (_selectedLocation == null) return '';
     final house = _houseNoController.text.trim();
@@ -88,14 +90,6 @@ class _AddPackageScreenState extends State<AddPackageScreen> {
       _showSuggestions = false;
       _suggestions = [];
     });
-  }
-
-  String _generatePackageId() {
-    final now = DateTime.now();
-    return 'PKG${now.year}'
-        '${now.month.toString().padLeft(2, '0')}'
-        '${now.day.toString().padLeft(2, '0')}'
-        '${now.millisecondsSinceEpoch.toString().substring(8)}';
   }
 
   Future<void> _pickDate() async {
@@ -154,7 +148,6 @@ class _AddPackageScreenState extends State<AddPackageScreen> {
 
     setState(() => _isLoading = true);
 
-    final packageId = _generatePackageId();
     final deadlineTime =
         '${_selectedTime!.hour.toString().padLeft(2, '0')}'
         ':${_selectedTime!.minute.toString().padLeft(2, '0')}';
@@ -169,7 +162,7 @@ class _AddPackageScreenState extends State<AddPackageScreen> {
         Uri.parse('$baseUrl/packages/add'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
-          'packageId': packageId,
+          // ✅ No packageId sent — backend generates it
           'packageName': _packageNameController.text,
           'receiverName': _receiverNameController.text,
           'receiverPhone': _receiverPhoneController.text,
@@ -186,11 +179,16 @@ class _AddPackageScreenState extends State<AddPackageScreen> {
       );
 
       if (response.statusCode == 200 &&
-          response.body.startsWith('Package added')) {
+          response.body.startsWith('Package added:')) {
+        // ✅ Extract packageId from backend response
+        // Response format: "Package added: PKG1234567890"
+        final backendPackageId =
+        response.body.split(': ')[1].trim();
+
         setState(() {
-          _generatedPackageId = packageId;
+          _generatedPackageId = backendPackageId;
           _addedPackage = {
-            'packageId': packageId,
+            'packageId': backendPackageId,
             'packageName': _packageNameController.text,
             'receiverName': _receiverNameController.text,
             'receiverPhone': _receiverPhoneController.text,
@@ -232,10 +230,11 @@ class _AddPackageScreenState extends State<AddPackageScreen> {
       final byteData = await image.toByteData(
           format: ui.ImageByteFormat.png);
       final pngBytes = byteData!.buffer.asUint8List();
+      // ✅ Cross-platform directory
       final directory =
-      await getExternalStorageDirectory();
+      await getApplicationDocumentsDirectory();
       final path =
-          '${directory!.path}/${_generatedPackageId}_QR.png';
+          '${directory.path}/${_generatedPackageId}_QR.png';
       final file = File(path);
       await file.writeAsBytes(pngBytes);
       ScaffoldMessenger.of(context).showSnackBar(
@@ -327,8 +326,8 @@ class _AddPackageScreenState extends State<AddPackageScreen> {
                   icon: const Icon(Icons.download_rounded,
                       color: Color(0xFF0D47A1)),
                   label: const Text('Download QR Code',
-                      style:
-                      TextStyle(color: Color(0xFF0D47A1))),
+                      style: TextStyle(
+                          color: Color(0xFF0D47A1))),
                 ),
                 const SizedBox(height: 8),
                 // Package info
@@ -543,7 +542,8 @@ class _AddPackageScreenState extends State<AddPackageScreen> {
                               borderRadius:
                               BorderRadius.circular(12),
                               border: Border.all(
-                                  color: Colors.grey.shade300),
+                                  color:
+                                  Colors.grey.shade300),
                             ),
                             child:
                             DropdownButtonHideUnderline(
@@ -560,9 +560,10 @@ class _AddPackageScreenState extends State<AddPackageScreen> {
                                         value: s,
                                         child: Text(s)))
                                     .toList(),
-                                onChanged: (val) => setState(
-                                        () =>
-                                    _selectedSize = val!),
+                                onChanged: (val) =>
+                                    setState(() =>
+                                    _selectedSize =
+                                    val!),
                               ),
                             ),
                           ),
@@ -606,12 +607,12 @@ class _AddPackageScreenState extends State<AddPackageScreen> {
               ]),
               const SizedBox(height: 20),
 
-              // Address Section
+              // Address
               _buildSectionHeader(
-                  'Delivery Address', Icons.location_on_rounded),
+                  'Delivery Address',
+                  Icons.location_on_rounded),
               const SizedBox(height: 12),
               _buildCard([
-                // Autocomplete search
                 Column(
                   crossAxisAlignment:
                   CrossAxisAlignment.start,
@@ -636,13 +637,15 @@ class _AddPackageScreenState extends State<AddPackageScreen> {
                             child:
                             CircularProgressIndicator(
                               strokeWidth: 2,
-                              color: Color(0xFF0D47A1),
+                              color:
+                              Color(0xFF0D47A1),
                             ),
                           ),
                         )
                             : _selectedLocation != null
                             ? const Icon(
-                          Icons.check_circle_rounded,
+                          Icons
+                              .check_circle_rounded,
                           color: Colors.green,
                         )
                             : null,
@@ -652,11 +655,11 @@ class _AddPackageScreenState extends State<AddPackageScreen> {
                         ),
                       ),
                     ),
-                    // Suggestions dropdown
                     if (_showSuggestions &&
                         _suggestions.isNotEmpty)
                       Container(
-                        margin: const EdgeInsets.only(top: 4),
+                        margin:
+                        const EdgeInsets.only(top: 4),
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius:
@@ -699,20 +702,8 @@ class _AddPackageScreenState extends State<AddPackageScreen> {
                                 overflow:
                                 TextOverflow.ellipsis,
                               ),
-                              subtitle: suggestion['city']
-                                  .toString()
-                                  .isNotEmpty
-                                  ? Text(
-                                '${suggestion['city']}, ${suggestion['state']}',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: Colors
-                                      .grey.shade500,
-                                ),
-                              )
-                                  : null,
-                              onTap: () =>
-                                  _selectLocation(suggestion),
+                              onTap: () => _selectLocation(
+                                  suggestion),
                               dense: true,
                             );
                           },
@@ -720,7 +711,6 @@ class _AddPackageScreenState extends State<AddPackageScreen> {
                       ),
                   ],
                 ),
-                // Show additional fields only after selection
                 if (_selectedLocation != null) ...[
                   const SizedBox(height: 16),
                   Container(
@@ -733,8 +723,10 @@ class _AddPackageScreenState extends State<AddPackageScreen> {
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.check_circle_rounded,
-                            color: Colors.green, size: 16),
+                        const Icon(
+                            Icons.check_circle_rounded,
+                            color: Colors.green,
+                            size: 16),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
@@ -770,15 +762,13 @@ class _AddPackageScreenState extends State<AddPackageScreen> {
                         : null,
                   ),
                   const SizedBox(height: 12),
-                  // Final address preview
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       color: const Color(0xFFF0F4FF),
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(
-                          color:
-                          const Color(0xFF0D47A1)
+                          color: const Color(0xFF0D47A1)
                               .withOpacity(0.3)),
                     ),
                     child: Column(
@@ -812,7 +802,8 @@ class _AddPackageScreenState extends State<AddPackageScreen> {
 
               // Deadline
               _buildSectionHeader(
-                  'Delivery Deadline', Icons.schedule_rounded),
+                  'Delivery Deadline',
+                  Icons.schedule_rounded),
               const SizedBox(height: 12),
               _buildCard([
                 Row(
@@ -844,7 +835,8 @@ class _AddPackageScreenState extends State<AddPackageScreen> {
                                     '${_selectedDate!.month}/'
                                     '${_selectedDate!.year}',
                                 style: TextStyle(
-                                  color: _selectedDate == null
+                                  color: _selectedDate ==
+                                      null
                                       ? Colors.grey
                                       : const Color(
                                       0xFF1A1A2E),
@@ -883,7 +875,8 @@ class _AddPackageScreenState extends State<AddPackageScreen> {
                                     : _selectedTime!
                                     .format(context),
                                 style: TextStyle(
-                                  color: _selectedTime == null
+                                  color: _selectedTime ==
+                                      null
                                       ? Colors.grey
                                       : const Color(
                                       0xFF1A1A2E),
@@ -900,12 +893,13 @@ class _AddPackageScreenState extends State<AddPackageScreen> {
               ]),
               const SizedBox(height: 32),
 
-              // Submit button
+              // Submit
               SizedBox(
                 width: double.infinity,
                 height: 56,
                 child: ElevatedButton.icon(
-                  onPressed: _isLoading ? null : _addPackage,
+                  onPressed:
+                  _isLoading ? null : _addPackage,
                   icon: _isLoading
                       ? const SizedBox(
                     width: 20,
@@ -926,10 +920,12 @@ class _AddPackageScreenState extends State<AddPackageScreen> {
                     ),
                   ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF0D47A1),
+                    backgroundColor:
+                    const Color(0xFF0D47A1),
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius:
+                      BorderRadius.circular(14),
                     ),
                   ),
                 ),
@@ -942,10 +938,12 @@ class _AddPackageScreenState extends State<AddPackageScreen> {
     );
   }
 
-  Widget _buildSectionHeader(String title, IconData icon) {
+  Widget _buildSectionHeader(
+      String title, IconData icon) {
     return Row(
       children: [
-        Icon(icon, color: const Color(0xFF0D47A1), size: 20),
+        Icon(icon,
+            color: const Color(0xFF0D47A1), size: 20),
         const SizedBox(width: 8),
         Text(
           title,
@@ -993,16 +991,21 @@ class _AddPackageScreenState extends State<AddPackageScreen> {
     return TextFormField(
       controller: controller,
       keyboardType: isNumber
-          ? const TextInputType.numberWithOptions(decimal: true)
+          ? const TextInputType.numberWithOptions(
+          decimal: true)
           : TextInputType.text,
       maxLines: maxLines,
       validator: validator,
       inputFormatters: isNumber
-          ? [FilteringTextInputFormatter.allow(
-          RegExp(r'^\d*\.?\d*'))]
+          ? [
+        FilteringTextInputFormatter.allow(
+            RegExp(r'^\d*\.?\d*'))
+      ]
           : isAlphaOnly
-          ? [FilteringTextInputFormatter.allow(
-          RegExp(r'[a-zA-Z\s]'))]
+          ? [
+        FilteringTextInputFormatter.allow(
+            RegExp(r'[a-zA-Z\s]'))
+      ]
           : null,
       decoration: InputDecoration(
         labelText: label,
