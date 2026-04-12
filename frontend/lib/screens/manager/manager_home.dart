@@ -8,6 +8,7 @@ import 'view_drivers_screen.dart';
 import 'delivery_status_screen.dart';
 import 'manager_profile_screen.dart';
 import 'driver_request_screen.dart';
+import 'depot_settings_screen.dart';
 
 class ManagerHome extends StatefulWidget {
   final String managerId;
@@ -29,7 +30,6 @@ class ManagerHome extends StatefulWidget {
 
 class _ManagerHomeState extends State<ManagerHome> {
   final String baseUrl = 'http://10.0.2.2:8080';
-
   List<dynamic> _pendingRequests = [];
   Timer? _pollingTimer;
   bool _popupShown = false;
@@ -37,9 +37,7 @@ class _ManagerHomeState extends State<ManagerHome> {
   @override
   void initState() {
     super.initState();
-    // Check immediately on load
     _checkPendingRequests();
-    // Then check every 30 seconds
     _pollingTimer = Timer.periodic(
       const Duration(seconds: 30),
           (_) => _checkPendingRequests(),
@@ -52,19 +50,14 @@ class _ManagerHomeState extends State<ManagerHome> {
     super.dispose();
   }
 
-  // ── Poll backend for pending driver requests ─────────────
   Future<void> _checkPendingRequests() async {
     try {
       final response = await http.get(Uri.parse(
           '$baseUrl/driver-requests/pending'
               '/${widget.managerId}'));
-
       if (response.statusCode == 200) {
         final List<dynamic> requests =
         jsonDecode(response.body);
-
-        // Only show popup if there are new requests
-        // and popup isn't already visible
         if (requests.isNotEmpty && !_popupShown) {
           setState(() => _pendingRequests = requests);
           _showRequestPopup();
@@ -73,12 +66,10 @@ class _ManagerHomeState extends State<ManagerHome> {
         }
       }
     } catch (e) {
-      // Silent fail — don't interrupt manager's workflow
       debugPrint('Polling error: $e');
     }
   }
 
-  // ── Show notification popup ──────────────────────────────
   void _showRequestPopup() {
     _popupShown = true;
     showDialog(
@@ -92,7 +83,6 @@ class _ManagerHomeState extends State<ManagerHome> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Icon
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -100,38 +90,27 @@ class _ManagerHomeState extends State<ManagerHome> {
                       .withOpacity(0.1),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
-                  Icons.person_add_rounded,
-                  color: Color(0xFF0D47A1),
-                  size: 40,
-                ),
+                child: const Icon(Icons.person_add_rounded,
+                    color: Color(0xFF0D47A1), size: 40),
               ),
               const SizedBox(height: 16),
-
-              const Text(
-                'New Driver Request!',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF1A1A2E),
-                ),
-              ),
+              const Text('New Driver Request!',
+                  style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF1A1A2E))),
               const SizedBox(height: 8),
-
               Text(
                 '${_pendingRequests.length} driver registration '
                     '${_pendingRequests.length == 1 ? 'request' : 'requests'} '
                     'waiting for your approval.',
                 style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey.shade600,
-                  height: 1.4,
-                ),
+                    fontSize: 14,
+                    color: Colors.grey.shade600,
+                    height: 1.4),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 24),
-
-              // Buttons
               Row(
                 children: [
                   Expanded(
@@ -144,9 +123,8 @@ class _ManagerHomeState extends State<ManagerHome> {
                         padding: const EdgeInsets.symmetric(
                             vertical: 14),
                         shape: RoundedRectangleBorder(
-                          borderRadius:
-                          BorderRadius.circular(10),
-                        ),
+                            borderRadius:
+                            BorderRadius.circular(10)),
                       ),
                       child: const Text('Later'),
                     ),
@@ -175,9 +153,8 @@ class _ManagerHomeState extends State<ManagerHome> {
                         padding: const EdgeInsets.symmetric(
                             vertical: 14),
                         shape: RoundedRectangleBorder(
-                          borderRadius:
-                          BorderRadius.circular(10),
-                        ),
+                            borderRadius:
+                            BorderRadius.circular(10)),
                       ),
                       child: const Text('See Details'),
                     ),
@@ -191,7 +168,6 @@ class _ManagerHomeState extends State<ManagerHome> {
     ).then((_) => _popupShown = false);
   }
 
-  // ── Navigation ───────────────────────────────────────────
   void _navigate(BuildContext context, Widget screen) {
     Navigator.push(
       context,
@@ -223,15 +199,13 @@ class _ManagerHomeState extends State<ManagerHome> {
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
-          // Notification bell — shows badge if pending
           Stack(
             children: [
               IconButton(
                 icon: const Icon(
-                  Icons.notifications_rounded,
-                  color: Colors.white,
-                  size: 28,
-                ),
+                    Icons.notifications_rounded,
+                    color: Colors.white,
+                    size: 28),
                 onPressed: () {
                   if (_pendingRequests.isNotEmpty) {
                     _navigate(
@@ -245,17 +219,14 @@ class _ManagerHomeState extends State<ManagerHome> {
                     );
                   } else {
                     ScaffoldMessenger.of(context)
-                        .showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                            'No pending driver requests'),
-                        behavior: SnackBarBehavior.floating,
-                      ),
-                    );
+                        .showSnackBar(const SnackBar(
+                      content: Text(
+                          'No pending driver requests'),
+                      behavior: SnackBarBehavior.floating,
+                    ));
                   }
                 },
               ),
-              // Badge
               if (_pendingRequests.isNotEmpty)
                 Positioned(
                   right: 8,
@@ -263,27 +234,22 @@ class _ManagerHomeState extends State<ManagerHome> {
                   child: Container(
                     padding: const EdgeInsets.all(4),
                     decoration: const BoxDecoration(
-                      color: Colors.red,
-                      shape: BoxShape.circle,
-                    ),
+                        color: Colors.red,
+                        shape: BoxShape.circle),
                     child: Text(
                       '${_pendingRequests.length}',
                       style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                      ),
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700),
                     ),
                   ),
                 ),
             ],
           ),
           IconButton(
-            icon: const Icon(
-              Icons.account_circle_rounded,
-              color: Colors.white,
-              size: 28,
-            ),
+            icon: const Icon(Icons.account_circle_rounded,
+                color: Colors.white, size: 28),
             onPressed: () => Navigator.push(
               context,
               MaterialPageRoute(
@@ -336,10 +302,9 @@ class _ManagerHomeState extends State<ManagerHome> {
                       BorderRadius.circular(12),
                     ),
                     child: const Icon(
-                      Icons.admin_panel_settings_rounded,
-                      color: Colors.white,
-                      size: 32,
-                    ),
+                        Icons.admin_panel_settings_rounded,
+                        color: Colors.white,
+                        size: 32),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
@@ -347,36 +312,28 @@ class _ManagerHomeState extends State<ManagerHome> {
                       crossAxisAlignment:
                       CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          'Welcome, ${widget.managerName}!',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        Text(
-                          widget.companyName,
-                          style: const TextStyle(
-                            color: Colors.white70,
-                            fontSize: 13,
-                          ),
-                        ),
-                        Text(
-                          widget.managerId,
-                          style: const TextStyle(
-                            color: Colors.white60,
-                            fontSize: 12,
-                            fontFamily: 'monospace',
-                          ),
-                        ),
+                        Text('Welcome, ${widget.managerName}!',
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight:
+                                FontWeight.w700)),
+                        Text(widget.companyName,
+                            style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 13)),
+                        Text(widget.managerId,
+                            style: const TextStyle(
+                                color: Colors.white60,
+                                fontSize: 12,
+                                fontFamily: 'monospace')),
                       ],
                     ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 28),
+            const SizedBox(height: 20),
 
             // Pending requests banner
             if (_pendingRequests.isNotEmpty)
@@ -393,20 +350,19 @@ class _ManagerHomeState extends State<ManagerHome> {
                 child: Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(16),
-                  margin: const EdgeInsets.only(bottom: 20),
+                  margin:
+                  const EdgeInsets.only(bottom: 20),
                   decoration: BoxDecoration(
                     color: Colors.orange.shade50,
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius:
+                    BorderRadius.circular(14),
                     border: Border.all(
                         color: Colors.orange.shade300),
                   ),
                   child: Row(
                     children: [
-                      const Icon(
-                        Icons.person_add_rounded,
-                        color: Colors.orange,
-                        size: 28,
-                      ),
+                      const Icon(Icons.person_add_rounded,
+                          color: Colors.orange, size: 28),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(
@@ -417,40 +373,32 @@ class _ManagerHomeState extends State<ManagerHome> {
                               '${_pendingRequests.length} Pending Driver '
                                   '${_pendingRequests.length == 1 ? 'Request' : 'Requests'}',
                               style: const TextStyle(
-                                fontWeight: FontWeight.w700,
-                                fontSize: 15,
-                                color: Color(0xFF1A1A2E),
-                              ),
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 15,
+                                  color: Color(0xFF1A1A2E)),
                             ),
-                            const Text(
-                              'Tap to review and approve',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.orange,
-                              ),
-                            ),
+                            const Text('Tap to review',
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.orange)),
                           ],
                         ),
                       ),
                       const Icon(
-                        Icons.arrow_forward_ios_rounded,
-                        size: 16,
-                        color: Colors.orange,
-                      ),
+                          Icons.arrow_forward_ios_rounded,
+                          size: 16,
+                          color: Colors.orange),
                     ],
                   ),
                 ),
               ),
 
-            const Text(
-              'QUICK ACTIONS',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF0D47A1),
-                letterSpacing: 1.5,
-              ),
-            ),
+            const Text('QUICK ACTIONS',
+                style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF0D47A1),
+                    letterSpacing: 1.5)),
             const SizedBox(height: 16),
 
             GridView.count(
@@ -461,42 +409,45 @@ class _ManagerHomeState extends State<ManagerHome> {
               mainAxisSpacing: 16,
               childAspectRatio: 1.1,
               children: [
-                _buildMenuCard(
-                  context,
-                  icon: Icons.add_box_rounded,
-                  title: 'Add Package',
-                  subtitle: 'Register new package',
-                  color: const Color(0xFF0D47A1),
-                  onTap: () => _navigate(
-                      context, const AddPackageScreen()),
-                ),
-                _buildMenuCard(
-                  context,
-                  icon: Icons.inventory_2_rounded,
-                  title: 'View Packages',
-                  subtitle: 'Track all packages',
-                  color: const Color(0xFF2E7D32),
-                  onTap: () => _navigate(
-                      context, const ViewPackagesScreen()),
-                ),
-                _buildMenuCard(
-                  context,
-                  icon: Icons.people_rounded,
-                  title: 'View Drivers',
-                  subtitle: 'Monitor drivers',
-                  color: const Color(0xFFE65100),
-                  onTap: () => _navigate(
-                      context, const ViewDriversScreen()),
-                ),
-                _buildMenuCard(
-                  context,
-                  icon: Icons.dashboard_rounded,
-                  title: 'Live Status',
-                  subtitle: 'Delivery dashboard',
-                  color: const Color(0xFF6A1B9A),
-                  onTap: () => _navigate(context,
-                      const DeliveryStatusScreen()),
-                ),
+                _buildMenuCard(context,
+                    icon: Icons.add_box_rounded,
+                    title: 'Add Package',
+                    subtitle: 'Register new package',
+                    color: const Color(0xFF0D47A1),
+                    onTap: () => _navigate(
+                        context, const AddPackageScreen())),
+                _buildMenuCard(context,
+                    icon: Icons.inventory_2_rounded,
+                    title: 'View Packages',
+                    subtitle: 'Track all packages',
+                    color: const Color(0xFF2E7D32),
+                    onTap: () => _navigate(context,
+                        const ViewPackagesScreen())),
+                _buildMenuCard(context,
+                    icon: Icons.people_rounded,
+                    title: 'View Drivers',
+                    subtitle: 'Monitor drivers',
+                    color: const Color(0xFFE65100),
+                    onTap: () => _navigate(
+                        context, const ViewDriversScreen())),
+                _buildMenuCard(context,
+                    icon: Icons.dashboard_rounded,
+                    title: 'Live Status',
+                    subtitle: 'Delivery dashboard',
+                    color: const Color(0xFF6A1B9A),
+                    onTap: () => _navigate(context,
+                        const DeliveryStatusScreen())),
+                // ✅ New card — Depot Settings
+                _buildMenuCard(context,
+                    icon: Icons.warehouse_rounded,
+                    title: 'Depot Settings',
+                    subtitle: 'Set warehouse location',
+                    color: const Color(0xFF00838F),
+                    onTap: () => _navigate(
+                      context,
+                      DepotSettingsScreen(
+                          managerId: widget.managerId),
+                    )),
               ],
             ),
           ],
@@ -505,14 +456,12 @@ class _ManagerHomeState extends State<ManagerHome> {
     );
   }
 
-  Widget _buildMenuCard(
-      BuildContext context, {
-        required IconData icon,
+  Widget _buildMenuCard(BuildContext context,
+      {required IconData icon,
         required String title,
         required String subtitle,
         required Color color,
-        required VoidCallback onTap,
-      }) {
+        required VoidCallback onTap}) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -522,10 +471,9 @@ class _ManagerHomeState extends State<ManagerHome> {
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: color.withOpacity(0.1),
-              blurRadius: 16,
-              offset: const Offset(0, 4),
-            ),
+                color: color.withOpacity(0.1),
+                blurRadius: 16,
+                offset: const Offset(0, 4))
           ],
         ),
         child: Column(
@@ -543,22 +491,16 @@ class _ManagerHomeState extends State<ManagerHome> {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF1A1A2E),
-                  ),
-                ),
+                Text(title,
+                    style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF1A1A2E))),
                 const SizedBox(height: 2),
-                Text(
-                  subtitle,
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Colors.grey.shade500,
-                  ),
-                ),
+                Text(subtitle,
+                    style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.grey.shade500)),
               ],
             ),
           ],

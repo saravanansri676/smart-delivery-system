@@ -1,6 +1,7 @@
 package com.example.demo.controller;
 
 import com.example.demo.model.Driver;
+import com.example.demo.model.FuelStation;
 import com.example.demo.model.Package;
 import com.example.demo.repository.DriverRepository;
 import com.example.demo.repository.PackageRepository;
@@ -34,20 +35,23 @@ public class FuelController {
             @RequestParam double startLat,
             @RequestParam double startLon) {
 
-        Driver driver = driverRepository.findById(driverId)
-                .orElse(null);
+        Driver driver = driverRepository
+                .findById(driverId).orElse(null);
         if (driver == null) return "Driver not found";
 
         List<Package> packages =
-                packageRepository.findByAssignedDriverId(driverId);
+                packageRepository
+                        .findByAssignedDriverId(driverId);
         if (packages.isEmpty())
             return "No packages assigned to driver";
 
-        List<Package> route = tspService.optimizeWithPriority(
-                packages, startLat, startLon);
+        List<Package> route =
+                tspService.optimizeWithPriority(
+                        packages, startLat, startLon);
 
         return fuelService.getFuelReport(
-                driver, route, startLat, startLon, tspService);
+                driver, route, startLat, startLon,
+                tspService);
     }
 
     // Quick fuel check
@@ -57,48 +61,61 @@ public class FuelController {
             @RequestParam double startLat,
             @RequestParam double startLon) {
 
-        Driver driver = driverRepository.findById(driverId)
-                .orElse(null);
+        Driver driver = driverRepository
+                .findById(driverId).orElse(null);
         if (driver == null) return "Driver not found";
 
         List<Package> packages =
-                packageRepository.findByAssignedDriverId(driverId);
+                packageRepository
+                        .findByAssignedDriverId(driverId);
 
-        List<Package> route = tspService.optimizeWithPriority(
-                packages, startLat, startLon);
+        List<Package> route =
+                tspService.optimizeWithPriority(
+                        packages, startLat, startLon);
 
         boolean sufficient = fuelService.hasSufficientFuel(
-                driver, route, startLat, startLon, tspService);
+                driver, route, startLat, startLon,
+                tspService);
 
         if (sufficient) {
             return "Fuel sufficient for route";
         } else {
-            FuelService.FuelStation nearest =
+            // ✅ FuelStation now imported from model package
+            // previously was FuelService.FuelStation (inner class)
+            FuelStation nearest =
                     fuelService.findNearestFuelStation(
                             startLat, startLon, tspService);
+            if (nearest == null)
+                return "Fuel insufficient! "
+                        + "No nearby stations found.";
             return "Fuel insufficient! Nearest station: "
                     + nearest.getName()
                     + " (" + nearest.getProvider() + ")";
         }
     }
 
-    // Update fuel level - FULL, MID, LOW only
+    // Update fuel level — FULL, MID, LOW only
     @PutMapping("/update/{driverId}")
     public String updateFuel(
             @PathVariable String driverId,
             @RequestParam String fuelLevel) {
 
         String upper = fuelLevel.toUpperCase();
-        if (!upper.equals("FULL") && !upper.equals("MID")
+        if (!upper.equals("FULL")
+                && !upper.equals("MID")
                 && !upper.equals("LOW")) {
-            return "Invalid fuel level. Use: FULL, MID, or LOW";
+            return "Invalid fuel level. "
+                    + "Use: FULL, MID, or LOW";
         }
 
-        return driverRepository.findById(driverId).map(driver -> {
-            driver.setFuelLevel(upper);
-            driverRepository.save(driver);
-            return "Fuel level updated to: " + upper + " for driver "
-                    + driverId;
-        }).orElse("Driver not found");
+        return driverRepository.findById(driverId)
+                .map(driver -> {
+                    driver.setFuelLevel(upper);
+                    driverRepository.save(driver);
+                    return "Fuel level updated to: "
+                            + upper + " for driver "
+                            + driverId;
+                })
+                .orElse("Driver not found");
     }
 }
