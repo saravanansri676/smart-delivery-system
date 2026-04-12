@@ -42,32 +42,46 @@ class _DriverLoginScreenState
 
       final result = response.body;
 
+      // Response format:
+      // SUCCESS:name:mobileNumber:companyName:managerId
       if (result.startsWith('SUCCESS')) {
         final parts = result.split(':');
+        // parts[0] = SUCCESS
+        // parts[1] = name
+        // parts[2] = mobileNumber
+        // parts[3] = companyName
+        // parts[4] = managerId ← needed for depot coords
+        final name =
+        parts.length > 1 ? parts[1] : 'Driver';
+        final managerId =
+        parts.length > 4 ? parts[4] : '';
+
         Navigator.pushReplacement(
           context,
           PageRouteBuilder(
             pageBuilder: (_, a, b) => DriverHome(
               driverIdFromLogin:
               _driverIdController.text.trim(),
-              driverName: parts.length > 1
-                  ? parts[1] : 'Driver',
+              driverName: name,
+              // ✅ Pass managerId so depot coords work
+              managerId: managerId,
             ),
             transitionsBuilder: (_, a, b, child) =>
-                FadeTransition(
-                    opacity: a, child: child),
+                FadeTransition(opacity: a, child: child),
             transitionDuration:
             const Duration(milliseconds: 300),
           ),
         );
       } else if (result == 'PENDING') {
         _showError(
-            'Account not verified. Check your SMS for OTP.');
+            'Account pending manager approval. '
+                'Please wait.');
       } else {
         _showError('Invalid Driver ID or Password');
       }
     } catch (e) {
-      _showError('Connection error. Is backend running?');
+      _showError(
+          'Connection error. Is backend running?');
     }
 
     setState(() => _isLoading = false);
@@ -93,6 +107,7 @@ class _DriverLoginScreenState
         child: SingleChildScrollView(
           child: Column(
             children: [
+              // Header
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(32),
@@ -147,11 +162,13 @@ class _DriverLoginScreenState
                 ),
               ),
               const SizedBox(height: 32),
+
               Padding(
                 padding: const EdgeInsets.symmetric(
                     horizontal: 24),
                 child: Column(
                   children: [
+                    // Driver ID
                     TextFormField(
                       controller: _driverIdController,
                       decoration: InputDecoration(
@@ -167,6 +184,8 @@ class _DriverLoginScreenState
                       ),
                     ),
                     const SizedBox(height: 16),
+
+                    // Password
                     TextFormField(
                       controller: _passwordController,
                       obscureText: _obscurePassword,
@@ -195,6 +214,8 @@ class _DriverLoginScreenState
                       ),
                     ),
                     const SizedBox(height: 8),
+
+                    // Forgot password
                     Align(
                       alignment: Alignment.centerRight,
                       child: TextButton(
@@ -213,6 +234,8 @@ class _DriverLoginScreenState
                       ),
                     ),
                     const SizedBox(height: 8),
+
+                    // Login button
                     SizedBox(
                       width: double.infinity,
                       height: 56,
@@ -239,6 +262,8 @@ class _DriverLoginScreenState
                       ),
                     ),
                     const SizedBox(height: 24),
+
+                    // Register link
                     Row(
                       mainAxisAlignment:
                       MainAxisAlignment.center,
@@ -272,5 +297,12 @@ class _DriverLoginScreenState
         ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _driverIdController.dispose();
+    _passwordController.dispose();
+    super.dispose();
   }
 }

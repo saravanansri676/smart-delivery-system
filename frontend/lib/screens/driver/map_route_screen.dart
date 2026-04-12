@@ -4,54 +4,81 @@ import 'package:latlong2/latlong.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../../services/weather_service.dart';
+import '../../services/depot_service.dart';
 
 class MapRouteScreen extends StatefulWidget {
   final String driverId;
-  const MapRouteScreen({super.key, required this.driverId});
+  final String managerId; // needed to fetch depot coords
+
+  const MapRouteScreen({
+    super.key,
+    required this.driverId,
+    required this.managerId,
+  });
 
   @override
-  State<MapRouteScreen> createState() => _MapRouteScreenState();
+  State<MapRouteScreen> createState() =>
+      _MapRouteScreenState();
 }
 
-class _MapRouteScreenState extends State<MapRouteScreen> {
+class _MapRouteScreenState
+    extends State<MapRouteScreen> {
   List route = [];
   bool isLoading = true;
   String weatherWarning = '';
   String weatherIcon = '🌤';
   Map weatherData = {};
 
+  // Start as default, updated after depot fetch
+  LatLng _startLocation = LatLng(
+      DepotService.defaultLat, DepotService.defaultLon);
+
   final String baseUrl = 'http://10.0.2.2:8080';
   final WeatherService weatherService = WeatherService();
-
-  // Driver start location - Chennai
-  final LatLng startLocation = const LatLng(13.0827, 80.2707);
 
   @override
   void initState() {
     super.initState();
-    fetchRouteAndWeather();
+    _loadWithDepot();
+  }
+
+  Future<void> _loadWithDepot() async {
+    // Step 1: fetch depot coords
+    final coords = await DepotService.getDepotCoords(
+        widget.managerId);
+    setState(() {
+      _startLocation = LatLng(coords[0], coords[1]);
+    });
+
+    // Step 2: fetch route and weather together
+    await fetchRouteAndWeather();
   }
 
   Future<void> fetchRouteAndWeather() async {
+    setState(() => isLoading = true);
     try {
-      // Fetch optimized route from backend
+      final lat = _startLocation.latitude;
+      final lon = _startLocation.longitude;
+
+      // Fetch optimized route
       final response = await http.get(Uri.parse(
           '$baseUrl/route/optimize/${widget.driverId}'
-              '?startLat=13.0827&startLon=80.2707'));
+              '?startLat=$lat&startLon=$lon'));
 
       if (response.statusCode == 200) {
         final routeData = jsonDecode(response.body);
 
-        // Fetch weather for start location
-        final weather = await weatherService.getWeather(
-            13.0827, 80.2707);
+        // Fetch weather for depot location
+        final weather =
+        await weatherService.getWeather(lat, lon);
 
         setState(() {
           route = routeData;
           weatherData = weather;
           weatherWarning =
               weatherService.getWeatherWarning(weather);
-          weatherIcon = weatherService.getWeatherIcon(weather);
+          weatherIcon =
+              weatherService.getWeatherIcon(weather);
           isLoading = false;
         });
       }
@@ -60,9 +87,8 @@ class _MapRouteScreenState extends State<MapRouteScreen> {
     }
   }
 
-  // Build route points for map line
   List<LatLng> getRoutePoints() {
-    List<LatLng> points = [startLocation];
+    List<LatLng> points = [_startLocation];
     for (var pkg in route) {
       points.add(LatLng(
         pkg['latitude'].toDouble(),
@@ -72,13 +98,12 @@ class _MapRouteScreenState extends State<MapRouteScreen> {
     return points;
   }
 
-  // Build markers for each stop
   List<Marker> getMarkers() {
     List<Marker> markers = [];
 
-    // Start marker
+    // Start / depot marker
     markers.add(Marker(
-      point: startLocation,
+      point: _startLocation,
       width: 40,
       height: 40,
       child: const Icon(
@@ -134,6 +159,10 @@ class _MapRouteScreenState extends State<MapRouteScreen> {
         title: const Text('Route Map'),
         backgroundColor: const Color(0xFF1565C0),
         foregroundColor: Colors.white,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_rounded),
+          onPressed: () => Navigator.pop(context),
+        ),
         actions: [
           IconButton(
             icon: const Text('🔄',
@@ -143,7 +172,8 @@ class _MapRouteScreenState extends State<MapRouteScreen> {
         ],
       ),
       body: isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(
+          child: CircularProgressIndicator())
           : Column(
         children: [
           // Weather warning banner
@@ -153,15 +183,15 @@ class _MapRouteScreenState extends State<MapRouteScreen> {
               padding: const EdgeInsets.all(12),
               color: weatherService
                   .isDangerousWeather(
-                  weatherData as Map<String,
-                      dynamic>)
+                  weatherData
+                  as Map<String, dynamic>)
                   ? Colors.red.shade100
                   : Colors.green.shade100,
               child: Row(
                 children: [
                   Text(weatherIcon,
-                      style:
-                      const TextStyle(fontSize: 24)),
+                      style: const TextStyle(
+                          fontSize: 24)),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
@@ -188,11 +218,10 @@ class _MapRouteScreenState extends State<MapRouteScreen> {
             flex: 3,
             child: FlutterMap(
               options: MapOptions(
-                initialCenter: startLocation,
+                initialCenter: _startLocation,
                 initialZoom: 11,
               ),
               children: [
-                // OpenStreetMap tile layer
                 TileLayer(
                   urlTemplate:
                   'https://tile.openstreetmap.org'
@@ -200,18 +229,17 @@ class _MapRouteScreenState extends State<MapRouteScreen> {
                   userAgentPackageName:
                   'com.example.smart_delivery_app',
                 ),
-                // Route line
                 if (route.isNotEmpty)
                   PolylineLayer(
                     polylines: [
                       Polyline(
                         points: getRoutePoints(),
                         strokeWidth: 4,
-                        color: const Color(0xFF1565C0),
+                        color:
+                        const Color(0xFF1565C0),
                       ),
                     ],
                   ),
-                // Stop markers
                 MarkerLayer(markers: getMarkers()),
               ],
             ),
@@ -222,7 +250,8 @@ class _MapRouteScreenState extends State<MapRouteScreen> {
             flex: 2,
             child: route.isEmpty
                 ? const Center(
-                child: Text('No packages assigned'))
+                child: Text(
+                    'No packages assigned'))
                 : ListView.builder(
               padding: const EdgeInsets.all(8),
               itemCount: route.length,
@@ -238,8 +267,8 @@ class _MapRouteScreenState extends State<MapRouteScreen> {
                           color: Colors.white),
                     ),
                   ),
-                  title:
-                  Text(pkg['packageName'] ?? ''),
+                  title: Text(
+                      pkg['packageName'] ?? ''),
                   subtitle: Text(
                       '${pkg['address']} • '
                           'Deadline: ${pkg['deadline']}'),

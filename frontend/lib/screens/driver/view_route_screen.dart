@@ -1,31 +1,53 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import '../../services/depot_service.dart';
 
 class ViewRouteScreen extends StatefulWidget {
   final String driverId;
-  const ViewRouteScreen({super.key, required this.driverId});
+  final String managerId; // needed to fetch depot coords
+
+  const ViewRouteScreen({
+    super.key,
+    required this.driverId,
+    required this.managerId,
+  });
 
   @override
-  State<ViewRouteScreen> createState() => _ViewRouteScreenState();
+  State<ViewRouteScreen> createState() =>
+      _ViewRouteScreenState();
 }
 
-class _ViewRouteScreenState extends State<ViewRouteScreen> {
+class _ViewRouteScreenState
+    extends State<ViewRouteScreen> {
   List route = [];
   bool isLoading = true;
+  double _startLat = DepotService.defaultLat;
+  double _startLon = DepotService.defaultLon;
   final String baseUrl = 'http://10.0.2.2:8080';
 
   @override
   void initState() {
     super.initState();
-    fetchRoute();
+    _loadWithDepot();
+  }
+
+  Future<void> _loadWithDepot() async {
+    final coords = await DepotService.getDepotCoords(
+        widget.managerId);
+    setState(() {
+      _startLat = coords[0];
+      _startLon = coords[1];
+    });
+    await fetchRoute();
   }
 
   Future<void> fetchRoute() async {
+    setState(() => isLoading = true);
     try {
       final response = await http.get(Uri.parse(
           '$baseUrl/route/optimize/${widget.driverId}'
-              '?startLat=13.0827&startLon=80.2707'));
+              '?startLat=$_startLat&startLon=$_startLon'));
       if (response.statusCode == 200) {
         setState(() {
           route = jsonDecode(response.body);
@@ -41,7 +63,7 @@ class _ViewRouteScreenState extends State<ViewRouteScreen> {
     final response = await http.put(Uri.parse(
         '$baseUrl/reroute/delivered/$packageId'
             '?driverId=${widget.driverId}'
-            '&currentLat=13.0827&currentLon=80.2707'));
+            '&currentLat=$_startLat&currentLon=$_startLon'));
     if (response.statusCode == 200) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(response.body)),
@@ -57,6 +79,10 @@ class _ViewRouteScreenState extends State<ViewRouteScreen> {
         title: const Text('My Route'),
         backgroundColor: const Color(0xFF1565C0),
         foregroundColor: Colors.white,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_rounded),
+          onPressed: () => Navigator.pop(context),
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -65,7 +91,8 @@ class _ViewRouteScreenState extends State<ViewRouteScreen> {
         ],
       ),
       body: isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(
+          child: CircularProgressIndicator())
           : route.isEmpty
           ? const Center(
           child: Text('No packages assigned'))
@@ -75,9 +102,11 @@ class _ViewRouteScreenState extends State<ViewRouteScreen> {
         itemBuilder: (context, index) {
           final pkg = route[index];
           return Card(
-            margin: const EdgeInsets.only(bottom: 12),
+            margin: const EdgeInsets.only(
+                bottom: 12),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius:
+              BorderRadius.circular(12),
             ),
             child: ListTile(
               leading: CircleAvatar(
@@ -87,7 +116,8 @@ class _ViewRouteScreenState extends State<ViewRouteScreen> {
                     style: const TextStyle(
                         color: Colors.white)),
               ),
-              title: Text(pkg['packageName'] ?? ''),
+              title: Text(
+                  pkg['packageName'] ?? ''),
               subtitle: Column(
                 crossAxisAlignment:
                 CrossAxisAlignment.start,
@@ -98,8 +128,8 @@ class _ViewRouteScreenState extends State<ViewRouteScreen> {
                 ],
               ),
               trailing: ElevatedButton(
-                onPressed: () =>
-                    markDelivered(pkg['packageId']),
+                onPressed: () => markDelivered(
+                    pkg['packageId']),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.green,
                   foregroundColor: Colors.white,
