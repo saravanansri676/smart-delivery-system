@@ -1,8 +1,10 @@
 package com.example.demo.service;
 
+import com.example.demo.model.Driver;
 import com.example.demo.model.DriverAccount;
 import com.example.demo.model.DriverRequest;
 import com.example.demo.repository.DriverAccountRepository;
+import com.example.demo.repository.DriverRepository;
 import com.example.demo.repository.DriverRequestRepository;
 import com.example.demo.repository.ManagerAccountRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,6 +27,10 @@ public class DriverAuthService {
     @Autowired
     private ManagerAccountRepository managerAccountRepository;
 
+    // ✅ Needed to create Driver record on acceptance
+    @Autowired
+    private DriverRepository driverRepository;
+
     // ── Utilities ──────────────────────────────────────────
 
     public String hashPassword(String raw) {
@@ -45,9 +51,6 @@ public class DriverAuthService {
         }
     }
 
-    // Reuse same hash for security answers
-    // Lowercase the answer before hashing
-    // so "Chennai" and "chennai" both work
     public String hashAnswer(String answer) {
         return hashPassword(answer.trim().toLowerCase());
     }
@@ -78,33 +81,29 @@ public class DriverAuthService {
     }
 
     // ── Registration — Submit request ───────────────────────
-    // Now also accepts securityQuestion + securityAnswer
 
     public String initiateRegistration(
             String driverId, String name,
             String companyName, String managerId,
             String mobileNumber, String password,
-            String securityQuestion, String securityAnswer) {
+            String securityQuestion,
+            String securityAnswer) {
 
-        // Driver ID already exists
         if (driverAccountRepository.existsById(driverId))
             return "ID_EXISTS";
 
-        // Mobile already registered
         if (driverAccountRepository
                 .existsByMobileNumber(mobileNumber))
             return "MOBILE_EXISTS";
 
-        // Manager must exist
         if (!managerAccountRepository.existsById(managerId))
             return "MANAGER_NOT_FOUND";
 
-        // Already has a pending request
         if (driverRequestRepository
-                .existsByDriverIdAndStatus(driverId, "PENDING"))
+                .existsByDriverIdAndStatus(
+                        driverId, "PENDING"))
             return "REQUEST_PENDING";
 
-        // Validate security question and answer
         if (securityQuestion == null
                 || securityQuestion.trim().isEmpty())
             return "SECURITY_QUESTION_REQUIRED";
@@ -113,7 +112,6 @@ public class DriverAuthService {
                 || securityAnswer.trim().isEmpty())
             return "SECURITY_ANSWER_REQUIRED";
 
-        // Build request
         DriverRequest request = new DriverRequest();
         request.setRequestId(generateRequestId());
         request.setDriverId(driverId);
@@ -136,7 +134,16 @@ public class DriverAuthService {
     }
 
     // ── Manager accepts registration request ────────────────
-    // Copies all data including security question to account
+    // Creates BOTH DriverAccount AND Driver records.
+    //
+    // DriverAccount → handles login/auth
+    // Driver        → handles routes, assignments,
+    //                 vehicle info, status, location
+    //
+    // Driver is created with basic info from the request.
+    // Remaining fields (vehicleNo, vehicleType, capacity,
+    // fuelLevel, location) are set to safe defaults and
+    // updated later by the driver via their profile screen.
 
     public String acceptRequest(String requestId) {
         Optional<DriverRequest> opt =
@@ -148,7 +155,7 @@ public class DriverAuthService {
         if (!"PENDING".equals(request.getStatus()))
             return "ALREADY_PROCESSED";
 
-        // Create driver account with security question
+        // ── 1. Create DriverAccount (auth) ─────────────────
         DriverAccount account = new DriverAccount();
         account.setDriverId(request.getDriverId());
         account.setName(request.getName());
@@ -163,10 +170,44 @@ public class DriverAuthService {
         account.setAccountStatus("ACTIVE");
         account.setOtp(null);
         account.setOtpExpiry(0);
-
         driverAccountRepository.save(account);
 
-        // Mark request accepted
+        // ── 2. Create Driver (operations) ──────────────────
+        // Only create if not already in drivers table
+        if (!driverRepository.existsById(
+                request.getDriverId())) {
+
+            Driver driver = new Driver();
+            driver.setDriverId(request.getDriverId());
+            driver.setName(request.getName());
+            driver.setMobileNumber(
+                    request.getMobileNumber());
+            driver.setCompanyName(
+                    request.getCompanyName());
+
+            // Safe defaults — driver updates via profile
+            driver.setStatus("AVAILABLE");
+            driver.setFuelLevel("FULL");
+            driver.setVehicleNo("");
+            driver.setVehicleType("BIKE");
+            driver.setVehicleCapacity(0);
+            driver.setWorkStartTime("09:00");
+            driver.setWorkEndTime("16:00");
+            driver.setCurrentLatitude(0);
+            driver.setCurrentLongitude(0);
+            driver.setAge(0);
+            driver.setSex("");
+            driver.setPackagesAssigned(0);
+            driver.setPackagesDelivered(0);
+            driver.setAverageRating(0.0);
+            driver.setPenaltyCount(0);
+            driver.setPenaltyReasons("");
+            driver.setDrivingScore(100.0);
+
+            driverRepository.save(driver);
+        }
+
+        // ── 3. Mark request as accepted ────────────────────
         request.setStatus("ACCEPTED");
         driverRequestRepository.save(request);
 
@@ -174,7 +215,7 @@ public class DriverAuthService {
                 + ":" + request.getName();
     }
 
-    // ── Manager rejects request ──────────────────────────────
+    // ── Manager rejects request ─────────────────────────────
 
     public String rejectRequest(String requestId) {
         Optional<DriverRequest> opt =
@@ -192,10 +233,8 @@ public class DriverAuthService {
         return "REJECTED:" + request.getDriverId();
     }
 
-    // ── Forgot Password — Option 4 ──────────────────────────
-    // Step 1: Driver enters driverId
-    //         → return the security question for that driver
-    //         so they know what to answer
+    // ── Forgot Password Step 1 ──────────────────────────────
+    // Return security question for given driverId
 
     public String getSecurityQuestion(String driverId) {
         Optional<DriverAccount> account =
@@ -207,16 +246,11 @@ public class DriverAuthService {
         if (question == null || question.isEmpty())
             return "NO_SECURITY_QUESTION";
 
-        // Return question so frontend can display it
         return "QUESTION:" + question;
     }
 
-    // ── Forgot Password — Step 2: Verify & Reset ────────────
-    // Driver provides:
-    //   - driverId
-    //   - registered mobile number  ← must match DB
-    //   - security answer            ← must match DB (hashed)
-    //   - new password
+    // ── Forgot Password Step 2 ──────────────────────────────
+    // Verify mobile + security answer → reset password
 
     public String resetPasswordWithVerification(
             String driverId,
@@ -230,23 +264,16 @@ public class DriverAuthService {
 
         DriverAccount driver = opt.get();
 
-        // Check 1: Mobile must match
         if (!driver.getMobileNumber()
-                .equals(mobileNumber.trim())) {
+                .equals(mobileNumber.trim()))
             return "MOBILE_MISMATCH";
-        }
 
-        // Check 2: Security answer must match (case-insensitive)
         String hashedInput = hashAnswer(securityAnswer);
-        if (!driver.getSecurityAnswer()
-                .equals(hashedInput)) {
+        if (!driver.getSecurityAnswer().equals(hashedInput))
             return "WRONG_ANSWER";
-        }
 
-        // Both checks passed — reset password
         driver.setPassword(hashPassword(newPassword));
         driverAccountRepository.save(driver);
-
         return "SUCCESS";
     }
 }
