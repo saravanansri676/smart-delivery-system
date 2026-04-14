@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'driver_register_screen.dart';
 import 'view_route_screen.dart';
 import 'fuel_status_screen.dart';
 import 'report_incident_screen.dart';
@@ -7,38 +6,24 @@ import 'map_route_screen.dart';
 import 'weather_screen.dart';
 import 'driver_profile_screen.dart';
 
-class DriverHome extends StatefulWidget {
+class DriverHome extends StatelessWidget {
   final String driverIdFromLogin;
   final String driverName;
-  // managerId needed to fetch depot coords for route/fuel/map
   final String managerId;
 
   const DriverHome({
     super.key,
-    this.driverIdFromLogin = '',
+    required this.driverIdFromLogin,
     this.driverName = '',
     this.managerId = '',
   });
 
   @override
-  State<DriverHome> createState() => _DriverHomeState();
-}
-
-class _DriverHomeState extends State<DriverHome> {
-  String driverId = '';
-  final _driverIdController = TextEditingController();
-
-  @override
-  void initState() {
-    super.initState();
-    if (widget.driverIdFromLogin.isNotEmpty) {
-      driverId = widget.driverIdFromLogin;
-      _driverIdController.text = widget.driverIdFromLogin;
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
+    // ✅ driverId comes directly from login — no manual entry
+    // ✅ No security issue — driver can only see their own data
+    final String driverId = driverIdFromLogin;
+
     return Scaffold(
       backgroundColor: const Color(0xFFF0F4FF),
       appBar: AppBar(
@@ -54,26 +39,13 @@ class _DriverHomeState extends State<DriverHome> {
               color: Colors.white,
               size: 28,
             ),
-            onPressed: () {
-              if (driverId.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content:
-                    Text('Please enter Driver ID first'),
-                    backgroundColor: Colors.red,
-                    behavior: SnackBarBehavior.floating,
-                  ),
-                );
-                return;
-              }
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => DriverProfileScreen(
-                      driverId: driverId),
-                ),
-              );
-            },
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => DriverProfileScreen(
+                    driverId: driverId),
+              ),
+            ),
           ),
         ],
       ),
@@ -82,7 +54,7 @@ class _DriverHomeState extends State<DriverHome> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header card
+            // Header card — shows driver info from login
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(24),
@@ -121,69 +93,41 @@ class _DriverHomeState extends State<DriverHome> {
                     ),
                   ),
                   const SizedBox(width: 16),
-                  Column(
-                    crossAxisAlignment:
-                    CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        driverId.isEmpty
-                            ? 'Welcome, Driver'
-                            : 'Driver $driverId',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.w700,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment:
+                      CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          driverName.isNotEmpty
+                              ? 'Hello, $driverName!'
+                              : 'Hello, Driver!',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
-                      ),
-                      const Text(
-                        'Smart Delivery System',
-                        style: TextStyle(
-                          color: Colors.white70,
-                          fontSize: 14,
+                        Text(
+                          driverId,
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 14,
+                            fontFamily: 'monospace',
+                          ),
                         ),
-                      ),
-                    ],
+                        const Text(
+                          'Smart Delivery System',
+                          style: TextStyle(
+                            color: Colors.white60,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
-            ),
-            const SizedBox(height: 24),
-
-            // Driver ID input
-            TextField(
-              controller: _driverIdController,
-              decoration: InputDecoration(
-                labelText: 'Enter Your Driver ID',
-                hintText: 'e.g. DRV001',
-                prefixIcon: const Icon(
-                    Icons.badge_rounded,
-                    color: Color(0xFF0D47A1)),
-                suffixIcon: IconButton(
-                  icon: const Icon(
-                      Icons.check_circle_rounded,
-                      color: Color(0xFF0D47A1)),
-                  onPressed: () {
-                    setState(() =>
-                    driverId = _driverIdController.text);
-                    ScaffoldMessenger.of(context)
-                        .showSnackBar(
-                      SnackBar(
-                        content: Text(
-                            'Driver ID set: ${_driverIdController.text}'),
-                        backgroundColor:
-                        const Color(0xFF0D47A1),
-                        behavior: SnackBarBehavior.floating,
-                        shape: RoundedRectangleBorder(
-                          borderRadius:
-                          BorderRadius.circular(10),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-              onChanged: (val) =>
-                  setState(() => driverId = val),
             ),
             const SizedBox(height: 28),
 
@@ -198,6 +142,8 @@ class _DriverHomeState extends State<DriverHome> {
             ),
             const SizedBox(height: 16),
 
+            // ✅ Register card removed
+            // ✅ 5 cards remain — displayed in 2-column grid
             GridView.count(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
@@ -208,26 +154,15 @@ class _DriverHomeState extends State<DriverHome> {
               children: [
                 _buildMenuCard(
                   context,
-                  icon: Icons.person_add_rounded,
-                  title: 'Register',
-                  subtitle: 'Join as driver',
-                  color: const Color(0xFF0D47A1),
-                  // ✅ Points to auth-based register screen
-                  onTap: () => _navigate(
-                      context, const DriverRegisterScreen()),
-                ),
-                _buildMenuCard(
-                  context,
                   icon: Icons.route_rounded,
                   title: 'My Route',
                   subtitle: 'View delivery stops',
                   color: const Color(0xFF2E7D32),
-                  // ✅ Passes managerId for depot coords
-                  onTap: () => _navigateWithId(
+                  onTap: () => _navigate(
                     context,
                     ViewRouteScreen(
                       driverId: driverId,
-                      managerId: widget.managerId,
+                      managerId: managerId,
                     ),
                   ),
                 ),
@@ -237,12 +172,11 @@ class _DriverHomeState extends State<DriverHome> {
                   title: 'Route Map',
                   subtitle: 'Visual navigation',
                   color: const Color(0xFF00838F),
-                  // ✅ Passes managerId for depot coords
-                  onTap: () => _navigateWithId(
+                  onTap: () => _navigate(
                     context,
                     MapRouteScreen(
                       driverId: driverId,
-                      managerId: widget.managerId,
+                      managerId: managerId,
                     ),
                   ),
                 ),
@@ -266,12 +200,11 @@ class _DriverHomeState extends State<DriverHome> {
                   title: 'Fuel Status',
                   subtitle: 'Check & update fuel',
                   color: const Color(0xFFE65100),
-                  // ✅ Passes managerId for depot coords
-                  onTap: () => _navigateWithId(
+                  onTap: () => _navigate(
                     context,
                     FuelStatusScreen(
                       driverId: driverId,
-                      managerId: widget.managerId,
+                      managerId: managerId,
                     ),
                   ),
                 ),
@@ -281,7 +214,7 @@ class _DriverHomeState extends State<DriverHome> {
                   title: 'Report Issue',
                   subtitle: 'Vehicle incidents',
                   color: const Color(0xFFC62828),
-                  onTap: () => _navigateWithId(
+                  onTap: () => _navigate(
                     context,
                     ReportIncidentScreen(
                         driverId: driverId),
@@ -313,25 +246,6 @@ class _DriverHomeState extends State<DriverHome> {
         const Duration(milliseconds: 300),
       ),
     );
-  }
-
-  void _navigateWithId(
-      BuildContext context, Widget screen) {
-    if (driverId.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content:
-          const Text('Please enter Driver ID first'),
-          backgroundColor: Colors.red.shade700,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-        ),
-      );
-      return;
-    }
-    _navigate(context, screen);
   }
 
   Widget _buildMenuCard(
@@ -394,11 +308,5 @@ class _DriverHomeState extends State<DriverHome> {
         ),
       ),
     );
-  }
-
-  @override
-  void dispose() {
-    _driverIdController.dispose();
-    super.dispose();
   }
 }
