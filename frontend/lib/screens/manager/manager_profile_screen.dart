@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../login_screen.dart';
@@ -27,55 +28,43 @@ class _ManagerProfileScreenState
   Map<String, dynamic> managerData = {};
   Map<String, dynamic> statusData = {};
   bool isLoading = true;
+  bool isSaving = false;
   final String baseUrl = 'http://10.0.2.2:8080';
 
   @override
   void initState() {
     super.initState();
-    managerData = {
-      'managerId': widget.managerId,
-      'name': widget.managerName,
-      'email': widget.managerEmail,
-      'companyName': widget.companyName,
-      'age': 'N/A',
-      'sex': 'N/A',
-      'mobileNumber': 'N/A',
-      'officeLocation': 'N/A',
-      'joinedDate': 'N/A',
-      'accountStatus': 'ACTIVE',
-    };
     fetchData();
   }
 
   Future<void> fetchData() async {
+    setState(() => isLoading = true);
     try {
-      // Fetch manager profile from backend
-      final profileResponse = await http.get(
-        Uri.parse('$baseUrl/auth/manager/profile'
-            '/${widget.managerId}'),
-      );
+      // Fetch profile, delivery status, and drivers
+      final results = await Future.wait([
+        http.get(Uri.parse(
+            '$baseUrl/auth/manager/profile'
+                '/${widget.managerId}')),
+        http.get(Uri.parse(
+            '$baseUrl/delivery/status')),
+        http.get(Uri.parse('$baseUrl/drivers/all')),
+      ]);
 
-      // Fetch delivery status
-      final statusResponse = await http
-          .get(Uri.parse('$baseUrl/delivery/status'));
+      final profileRes = results[0];
+      final statusRes = results[1];
+      final driversRes = results[2];
 
-      // Fetch drivers
-      final driversResponse = await http
-          .get(Uri.parse('$baseUrl/drivers/all'));
-
-      if (profileResponse.statusCode == 200) {
-        final profileJson =
-        jsonDecode(profileResponse.body)
+      if (profileRes.statusCode == 200) {
+        final profile = jsonDecode(profileRes.body)
         as Map<String, dynamic>;
 
-        final statusJson =
-        statusResponse.statusCode == 200
-            ? jsonDecode(statusResponse.body)
-            : {};
+        final status = statusRes.statusCode == 200
+            ? jsonDecode(statusRes.body)
+        as Map<String, dynamic>
+            : <String, dynamic>{};
 
-        final drivers =
-        driversResponse.statusCode == 200
-            ? jsonDecode(driversResponse.body) as List
+        final drivers = driversRes.statusCode == 200
+            ? jsonDecode(driversRes.body) as List
             : [];
 
         final activeDrivers = drivers
@@ -88,31 +77,9 @@ class _ManagerProfileScreenState
             .length;
 
         setState(() {
-          // Merge backend data with local data
-          managerData = {
-            'managerId':
-            profileJson['managerId'] ??
-                widget.managerId,
-            'name': profileJson['name'] ??
-                widget.managerName,
-            'email': profileJson['email'] ??
-                widget.managerEmail,
-            'companyName':
-            profileJson['companyName'] ??
-                widget.companyName,
-            'accountStatus':
-            profileJson['accountStatus'] ?? 'ACTIVE',
-            'age': managerData['age'] ?? 'N/A',
-            'sex': managerData['sex'] ?? 'N/A',
-            'mobileNumber':
-            managerData['mobileNumber'] ?? 'N/A',
-            'officeLocation':
-            managerData['officeLocation'] ?? 'N/A',
-            'joinedDate':
-            managerData['joinedDate'] ?? 'N/A',
-          };
+          managerData = profile;
           statusData = {
-            ...Map<String, dynamic>.from(statusJson),
+            ...status,
             'totalDrivers': drivers.length,
             'activeDrivers': activeDrivers,
             'inactiveDrivers': inactiveDrivers,
@@ -125,129 +92,417 @@ class _ManagerProfileScreenState
     }
   }
 
+  // ── Save profile to backend ──────────────────────────────
+  Future<bool> _saveProfile(
+      Map<String, dynamic> updatedData) async {
+    try {
+      final response = await http.put(
+        Uri.parse(
+            '$baseUrl/auth/manager/profile'
+                '/${widget.managerId}'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(updatedData),
+      );
+      return response.statusCode == 200 &&
+          response.body
+              .contains('updated successfully');
+    } catch (e) {
+      return false;
+    }
+  }
+
   void _showEditDialog() {
+    // Pre-fill all fields with current data
     final nameController = TextEditingController(
-        text: managerData['name']);
+        text: managerData['name'] ?? '');
     final emailController = TextEditingController(
-        text: managerData['email']);
+        text: managerData['email'] ?? '');
     final phoneController = TextEditingController(
-        text: managerData['mobileNumber']);
+        text: managerData['mobileNumber'] ?? '');
     final companyController = TextEditingController(
-        text: managerData['companyName']);
+        text: managerData['companyName'] ?? '');
     final locationController = TextEditingController(
-        text: managerData['officeLocation']);
+        text: managerData['officeLocation'] ?? '');
+    final ageController = TextEditingController(
+        text: managerData['age'] != null &&
+            managerData['age'] != 0
+            ? '${managerData['age']}'
+            : '');
+    final joinedDateController = TextEditingController(
+        text: managerData['joinedDate'] ?? '');
+
+    // Sex dropdown — default to first option if not set
+    String selectedSex =
+    (managerData['sex'] != null &&
+        managerData['sex'].toString().isNotEmpty)
+        ? managerData['sex']
+        : 'Male';
 
     showDialog(
       context: context,
-      builder: (_) => Dialog(
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20)),
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Edit Profile',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF0D47A1),
+      builder: (_) => StatefulBuilder(
+        builder: (context, setDialogState) => Dialog(
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20)),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment:
+              CrossAxisAlignment.start,
+              children: [
+                // Header
+                Row(
+                  children: [
+                    const Icon(Icons.edit_rounded,
+                        color: Color(0xFF0D47A1),
+                        size: 20),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Edit Profile',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF0D47A1),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-              const SizedBox(height: 20),
-              _buildEditField(nameController, 'Name',
-                  Icons.person_rounded),
-              const SizedBox(height: 12),
-              _buildEditField(emailController, 'Email',
-                  Icons.email_rounded),
-              const SizedBox(height: 12),
-              _buildEditField(phoneController,
-                  'Mobile Number', Icons.phone_rounded),
-              const SizedBox(height: 12),
-              _buildEditField(companyController,
-                  'Company Name', Icons.business_rounded),
-              const SizedBox(height: 12),
-              _buildEditField(locationController,
-                  'Office Location',
-                  Icons.location_on_rounded),
-              const SizedBox(height: 24),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () =>
-                          Navigator.pop(context),
-                      style: OutlinedButton.styleFrom(
-                        padding:
-                        const EdgeInsets.symmetric(
-                            vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius:
-                          BorderRadius.circular(10),
-                        ),
-                      ),
-                      child: const Text('Cancel'),
-                    ),
+                const SizedBox(height: 4),
+                Text(
+                  'Changes will be saved to your account',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey.shade500,
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () {
-                        setState(() {
-                          managerData['name'] =
-                              nameController.text;
-                          managerData['email'] =
-                              emailController.text;
-                          managerData['mobileNumber'] =
-                              phoneController.text;
-                          managerData['companyName'] =
-                              companyController.text;
-                          managerData['officeLocation'] =
-                              locationController.text;
-                        });
-                        Navigator.pop(context);
-                        ScaffoldMessenger.of(context)
-                            .showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                                'Profile updated!'),
-                            backgroundColor:
-                            Colors.green,
-                            behavior:
-                            SnackBarBehavior.floating,
+                ),
+                const Divider(height: 24),
+
+                // ── Personal Info ──────────────────────
+                _sectionLabel('Personal Information'),
+                const SizedBox(height: 12),
+
+                _buildEditField(nameController,
+                    'Full Name', Icons.person_rounded),
+                const SizedBox(height: 12),
+
+                // Age + Sex in a row
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: ageController,
+                        keyboardType:
+                        TextInputType.number,
+                        inputFormatters: [
+                          FilteringTextInputFormatter
+                              .digitsOnly,
+                          LengthLimitingTextInputFormatter(
+                              3),
+                        ],
+                        decoration: InputDecoration(
+                          labelText: 'Age',
+                          prefixIcon: const Icon(
+                              Icons.cake_rounded,
+                              color: Color(0xFF0D47A1)),
+                          border: OutlineInputBorder(
+                            borderRadius:
+                            BorderRadius.circular(
+                                12),
                           ),
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor:
-                        const Color(0xFF0D47A1),
-                        foregroundColor: Colors.white,
-                        padding:
-                        const EdgeInsets.symmetric(
-                            vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius:
-                          BorderRadius.circular(10),
+                          contentPadding:
+                          const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 12),
                         ),
                       ),
-                      child: const Text('Save'),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment:
+                        CrossAxisAlignment.start,
+                        children: [
+                          Text('Sex',
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  color:
+                                  Colors.grey.shade600,
+                                  fontWeight:
+                                  FontWeight.w500)),
+                          const SizedBox(height: 6),
+                          Container(
+                            padding:
+                            const EdgeInsets.symmetric(
+                                horizontal: 12),
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade50,
+                              borderRadius:
+                              BorderRadius.circular(
+                                  12),
+                              border: Border.all(
+                                  color: Colors
+                                      .grey.shade300),
+                            ),
+                            child:
+                            DropdownButtonHideUnderline(
+                              child: DropdownButton<String>(
+                                value: selectedSex,
+                                isExpanded: true,
+                                items: ['Male',
+                                  'Female',
+                                  'Other']
+                                    .map((s) =>
+                                    DropdownMenuItem(
+                                        value: s,
+                                        child: Text(s)))
+                                    .toList(),
+                                onChanged: (val) =>
+                                    setDialogState(() =>
+                                    selectedSex =
+                                    val!),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+
+                _buildEditField(phoneController,
+                    'Mobile Number', Icons.phone_rounded,
+                    isNumber: true),
+                const SizedBox(height: 20),
+
+                // ── Company Info ───────────────────────
+                _sectionLabel('Company Information'),
+                const SizedBox(height: 12),
+
+                _buildEditField(emailController, 'Email',
+                    Icons.email_rounded),
+                const SizedBox(height: 12),
+
+                _buildEditField(companyController,
+                    'Company Name',
+                    Icons.business_rounded),
+                const SizedBox(height: 12),
+
+                _buildEditField(locationController,
+                    'Office Location',
+                    Icons.location_on_rounded),
+                const SizedBox(height: 12),
+
+                // Joined Date picker
+                GestureDetector(
+                  onTap: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: DateTime.now(),
+                      firstDate: DateTime(2000),
+                      lastDate: DateTime.now(),
+                      builder: (context, child) => Theme(
+                        data: Theme.of(context).copyWith(
+                          colorScheme:
+                          const ColorScheme.light(
+                              primary:
+                              Color(0xFF0D47A1)),
+                        ),
+                        child: child!,
+                      ),
+                    );
+                    if (picked != null) {
+                      final formatted =
+                          '${picked.year}-'
+                          '${picked.month.toString().padLeft(2, '0')}-'
+                          '${picked.day.toString().padLeft(2, '0')}';
+                      setDialogState(() =>
+                      joinedDateController.text =
+                          formatted);
+                    }
+                  },
+                  child: AbsorbPointer(
+                    child: TextFormField(
+                      controller: joinedDateController,
+                      decoration: InputDecoration(
+                        labelText: 'Joined Date',
+                        hintText: 'Tap to select',
+                        prefixIcon: const Icon(
+                            Icons.calendar_today_rounded,
+                            color: Color(0xFF0D47A1)),
+                        suffixIcon: const Icon(
+                            Icons.arrow_drop_down_rounded,
+                            color: Colors.grey),
+                        border: OutlineInputBorder(
+                          borderRadius:
+                          BorderRadius.circular(12),
+                        ),
+                        contentPadding:
+                        const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12),
+                      ),
                     ),
                   ),
-                ],
-              ),
-            ],
+                ),
+                const SizedBox(height: 24),
+
+                // ── Action buttons ─────────────────────
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () =>
+                            Navigator.pop(context),
+                        style: OutlinedButton.styleFrom(
+                          padding:
+                          const EdgeInsets.symmetric(
+                              vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius:
+                            BorderRadius.circular(10),
+                          ),
+                        ),
+                        child: const Text('Cancel'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: isSaving
+                            ? null
+                            : () async {
+                          // Build update payload
+                          final updated = {
+                            'name':
+                            nameController.text
+                                .trim(),
+                            'email':
+                            emailController.text
+                                .trim(),
+                            'mobileNumber':
+                            phoneController.text
+                                .trim(),
+                            'companyName':
+                            companyController
+                                .text.trim(),
+                            'officeLocation':
+                            locationController
+                                .text.trim(),
+                            'age': int.tryParse(
+                                ageController
+                                    .text
+                                    .trim()) ??
+                                0,
+                            'sex': selectedSex,
+                            'joinedDate':
+                            joinedDateController
+                                .text.trim(),
+                          };
+
+                          setState(
+                                  () => isSaving = true);
+                          Navigator.pop(context);
+
+                          final success =
+                          await _saveProfile(
+                              updated);
+
+                          if (success) {
+                            // Refresh from backend
+                            await fetchData();
+                            ScaffoldMessenger.of(
+                                context)
+                                .showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                    '✅ Profile saved!'),
+                                backgroundColor:
+                                Colors.green,
+                                behavior:
+                                SnackBarBehavior
+                                    .floating,
+                              ),
+                            );
+                          } else {
+                            ScaffoldMessenger.of(
+                                context)
+                                .showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                    '❌ Save failed. Try again.'),
+                                backgroundColor:
+                                Colors.red,
+                                behavior:
+                                SnackBarBehavior
+                                    .floating,
+                              ),
+                            );
+                          }
+                          setState(
+                                  () => isSaving = false);
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor:
+                          const Color(0xFF0D47A1),
+                          foregroundColor: Colors.white,
+                          padding:
+                          const EdgeInsets.symmetric(
+                              vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius:
+                            BorderRadius.circular(10),
+                          ),
+                        ),
+                        child: const Text('Save'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildEditField(TextEditingController controller,
-      String label, IconData icon) {
+  Widget _sectionLabel(String label) {
+    return Row(
+      children: [
+        Container(
+          width: 4,
+          height: 16,
+          decoration: BoxDecoration(
+            color: const Color(0xFF0D47A1),
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF0D47A1),
+            letterSpacing: 0.5,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEditField(
+      TextEditingController controller,
+      String label,
+      IconData icon, {
+        bool isNumber = false,
+      }) {
     return TextField(
       controller: controller,
+      keyboardType:
+      isNumber ? TextInputType.number : TextInputType.text,
       decoration: InputDecoration(
         labelText: label,
         prefixIcon:
@@ -296,24 +551,41 @@ class _ManagerProfileScreenState
     );
   }
 
+  String _safeString(dynamic val,
+      [String fallback = 'Not set']) {
+    if (val == null) return fallback;
+    final s = val.toString().trim();
+    return s.isEmpty ? fallback : s;
+  }
+
+  String _safeAge(dynamic val) {
+    if (val == null) return 'Not set';
+    final n = val is int ? val : int.tryParse('$val');
+    if (n == null || n == 0) return 'Not set';
+    return '$n';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF0F4FF),
       body: isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(
+          child: CircularProgressIndicator())
           : CustomScrollView(
         slivers: [
           // Header
           SliverAppBar(
             expandedHeight: 220,
             pinned: true,
-            backgroundColor: const Color(0xFF0D47A1),
+            backgroundColor:
+            const Color(0xFF0D47A1),
             leading: IconButton(
               icon: const Icon(
                   Icons.arrow_back_ios_rounded,
                   color: Colors.white),
-              onPressed: () => Navigator.pop(context),
+              onPressed: () =>
+                  Navigator.pop(context),
             ),
             flexibleSpace: FlexibleSpaceBar(
               background: Container(
@@ -334,17 +606,20 @@ class _ManagerProfileScreenState
                     const SizedBox(height: 40),
                     CircleAvatar(
                       radius: 45,
-                      backgroundColor:
-                      Colors.white.withOpacity(0.2),
+                      backgroundColor: Colors.white
+                          .withOpacity(0.2),
                       child: const Icon(
-                        Icons.admin_panel_settings_rounded,
+                        Icons
+                            .admin_panel_settings_rounded,
                         color: Colors.white,
                         size: 40,
                       ),
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      managerData['name'] ?? 'Manager',
+                      _safeString(
+                          managerData['name'],
+                          'Manager'),
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 22,
@@ -352,7 +627,7 @@ class _ManagerProfileScreenState
                       ),
                     ),
                     Text(
-                      managerData['managerId'] ?? '',
+                      widget.managerId,
                       style: const TextStyle(
                         color: Colors.white70,
                         fontSize: 14,
@@ -366,17 +641,20 @@ class _ManagerProfileScreenState
                           horizontal: 12,
                           vertical: 4),
                       decoration: BoxDecoration(
-                        color:
-                        Colors.green.withOpacity(0.2),
+                        color: Colors.green
+                            .withOpacity(0.2),
                         borderRadius:
-                        BorderRadius.circular(20),
+                        BorderRadius.circular(
+                            20),
                         border: Border.all(
                             color: Colors.green
                                 .withOpacity(0.5)),
                       ),
                       child: Text(
-                        managerData['accountStatus'] ??
-                            'ACTIVE',
+                        _safeString(
+                            managerData[
+                            'accountStatus'],
+                            'ACTIVE'),
                         style: const TextStyle(
                           color: Colors.greenAccent,
                           fontSize: 12,
@@ -394,27 +672,36 @@ class _ManagerProfileScreenState
             padding: const EdgeInsets.all(16),
             sliver: SliverList(
               delegate: SliverChildListDelegate([
+
                 // Personal Details
                 _buildSection(
                   title: 'Personal Details',
                   icon: Icons.person_rounded,
                   children: [
-                    _buildRow(Icons.badge_rounded,
+                    _buildRow(
+                        Icons.badge_rounded,
                         'Manager ID',
-                        managerData['managerId'] ?? ''),
-                    _buildRow(Icons.cake_rounded,
+                        widget.managerId),
+                    _buildRow(
+                        Icons.cake_rounded,
                         'Age',
-                        '${managerData['age'] ?? 'N/A'}'),
-                    _buildRow(Icons.wc_rounded,
+                        _safeAge(
+                            managerData['age'])),
+                    _buildRow(
+                        Icons.wc_rounded,
                         'Sex',
-                        managerData['sex'] ?? 'N/A'),
-                    _buildRow(Icons.email_rounded,
+                        _safeString(
+                            managerData['sex'])),
+                    _buildRow(
+                        Icons.email_rounded,
                         'Email',
-                        managerData['email'] ?? 'N/A'),
-                    _buildRow(Icons.phone_rounded,
+                        _safeString(
+                            managerData['email'])),
+                    _buildRow(
+                        Icons.phone_rounded,
                         'Mobile',
-                        managerData['mobileNumber'] ??
-                            'N/A'),
+                        _safeString(managerData[
+                        'mobileNumber'])),
                   ],
                 ),
                 const SizedBox(height: 16),
@@ -427,30 +714,32 @@ class _ManagerProfileScreenState
                     _buildRow(
                         Icons.business_rounded,
                         'Company',
-                        managerData['companyName'] ??
-                            'N/A'),
+                        _safeString(managerData[
+                        'companyName'])),
                     _buildRow(
                         Icons.location_on_rounded,
                         'Location',
-                        managerData['officeLocation'] ??
-                            'N/A'),
+                        _safeString(managerData[
+                        'officeLocation'])),
                     _buildRow(
                         Icons.calendar_today_rounded,
                         'Joined',
-                        managerData['joinedDate'] ??
-                            'N/A'),
+                        _safeString(
+                            managerData[
+                            'joinedDate'])),
                     _buildRow(
                         Icons.verified_rounded,
                         'Account',
-                        managerData['accountStatus'] ??
-                            'ACTIVE'),
+                        _safeString(managerData[
+                        'accountStatus'],
+                            'ACTIVE')),
                   ],
                 ),
                 const SizedBox(height: 16),
 
-                // Work Details
+                // Work Stats
                 _buildSection(
-                  title: 'Work Details',
+                  title: 'Work Overview',
                   icon: Icons.work_rounded,
                   children: [
                     _buildRow(
@@ -527,16 +816,15 @@ class _ManagerProfileScreenState
           Row(
             children: [
               Icon(icon,
-                  color: const Color(0xFF0D47A1), size: 18),
+                  color: const Color(0xFF0D47A1),
+                  size: 18),
               const SizedBox(width: 8),
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF0D47A1),
-                ),
-              ),
+              Text(title,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF0D47A1),
+                  )),
             ],
           ),
           const Divider(height: 20),
@@ -552,28 +840,25 @@ class _ManagerProfileScreenState
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         children: [
-          Icon(icon, size: 18, color: Colors.grey.shade400),
+          Icon(icon,
+              size: 18, color: Colors.grey.shade400),
           const SizedBox(width: 12),
           SizedBox(
             width: 100,
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: 13,
-                color: Colors.grey.shade500,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
+            child: Text(label,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Colors.grey.shade500,
+                  fontWeight: FontWeight.w500,
+                )),
           ),
           Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(
-                fontSize: 13,
-                color: Color(0xFF1A1A2E),
-                fontWeight: FontWeight.w600,
-              ),
-            ),
+            child: Text(value,
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: Color(0xFF1A1A2E),
+                  fontWeight: FontWeight.w600,
+                )),
           ),
         ],
       ),
@@ -601,17 +886,16 @@ class _ManagerProfileScreenState
             Icon(icon, color: color, size: 22),
             const SizedBox(width: 12),
             Expanded(
-              child: Text(
-                label,
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: color,
-                ),
-              ),
+              child: Text(label,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: color,
+                  )),
             ),
             Icon(Icons.arrow_forward_ios_rounded,
-                size: 14, color: color.withOpacity(0.5)),
+                size: 14,
+                color: color.withOpacity(0.5)),
           ],
         ),
       ),
