@@ -5,8 +5,9 @@ import 'report_incident_screen.dart';
 import 'map_route_screen.dart';
 import 'weather_screen.dart';
 import 'driver_profile_screen.dart';
+import '../../services/work_hour_service.dart';
 
-class DriverHome extends StatelessWidget {
+class DriverHome extends StatefulWidget {
   final String driverIdFromLogin;
   final String driverName;
   final String managerId;
@@ -19,10 +20,54 @@ class DriverHome extends StatelessWidget {
   });
 
   @override
+  State<DriverHome> createState() => _DriverHomeState();
+}
+
+class _DriverHomeState extends State<DriverHome> {
+  late final WorkHourService _workHourService;
+
+  @override
+  void initState() {
+    super.initState();
+
+    // Start work hour monitoring
+    // Automatically sets driver OFFLINE at 16:00
+    _workHourService = WorkHourService(
+      driverId: widget.driverIdFromLogin,
+      workEndTime: '16:00',
+      onStatusChanged: (newStatus) {
+        // Show snackbar when auto-offline triggers
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                '🕓 Work hours ended. '
+                    'Your status is now $newStatus.',
+              ),
+              backgroundColor: Colors.orange.shade700,
+              duration: const Duration(seconds: 5),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+          );
+        }
+      },
+    );
+    _workHourService.start();
+  }
+
+  @override
+  void dispose() {
+    // Stop timer when driver leaves the dashboard
+    _workHourService.stop();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    // ✅ driverId comes directly from login — no manual entry
-    // ✅ No security issue — driver can only see their own data
-    final String driverId = driverIdFromLogin;
+    final String driverId = widget.driverIdFromLogin;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF0F4FF),
@@ -54,7 +99,7 @@ class DriverHome extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header card — shows driver info from login
+            // Header card
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(24),
@@ -99,8 +144,8 @@ class DriverHome extends StatelessWidget {
                       CrossAxisAlignment.start,
                       children: [
                         Text(
-                          driverName.isNotEmpty
-                              ? 'Hello, $driverName!'
+                          widget.driverName.isNotEmpty
+                              ? 'Hello, ${widget.driverName}!'
                               : 'Hello, Driver!',
                           style: const TextStyle(
                             color: Colors.white,
@@ -142,8 +187,6 @@ class DriverHome extends StatelessWidget {
             ),
             const SizedBox(height: 16),
 
-            // ✅ Register card removed
-            // ✅ 5 cards remain — displayed in 2-column grid
             GridView.count(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
@@ -162,7 +205,7 @@ class DriverHome extends StatelessWidget {
                     context,
                     ViewRouteScreen(
                       driverId: driverId,
-                      managerId: managerId,
+                      managerId: widget.managerId,
                     ),
                   ),
                 ),
@@ -176,7 +219,7 @@ class DriverHome extends StatelessWidget {
                     context,
                     MapRouteScreen(
                       driverId: driverId,
-                      managerId: managerId,
+                      managerId: widget.managerId,
                     ),
                   ),
                 ),
@@ -204,7 +247,7 @@ class DriverHome extends StatelessWidget {
                     context,
                     FuelStatusScreen(
                       driverId: driverId,
-                      managerId: managerId,
+                      managerId: widget.managerId,
                     ),
                   ),
                 ),

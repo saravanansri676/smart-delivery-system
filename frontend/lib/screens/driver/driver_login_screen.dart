@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'driver_home.dart';
 import 'driver_register_screen.dart';
 import 'driver_forgot_password_screen.dart';
+import '../../services/session_service.dart';
 
 class DriverLoginScreen extends StatefulWidget {
   const DriverLoginScreen({super.key});
@@ -42,19 +43,26 @@ class _DriverLoginScreenState
 
       final result = response.body;
 
-      // Response format:
-      // SUCCESS:name:mobileNumber:companyName:managerId
+      // Response: SUCCESS:name:mobileNumber:companyName:managerId
       if (result.startsWith('SUCCESS')) {
         final parts = result.split(':');
-        // parts[0] = SUCCESS
-        // parts[1] = name
-        // parts[2] = mobileNumber
-        // parts[3] = companyName
-        // parts[4] = managerId ← needed for depot coords
         final name =
         parts.length > 1 ? parts[1] : 'Driver';
+        final mobile =
+        parts.length > 2 ? parts[2] : '';
+        final company =
+        parts.length > 3 ? parts[3] : '';
         final managerId =
         parts.length > 4 ? parts[4] : '';
+
+        // ✅ Save session so app remembers on next open
+        await SessionService.saveDriverSession(
+          driverId: _driverIdController.text.trim(),
+          driverName: name,
+          managerId: managerId,
+          companyName: company,
+          mobileNumber: mobile,
+        );
 
         Navigator.pushReplacement(
           context,
@@ -63,7 +71,6 @@ class _DriverLoginScreenState
               driverIdFromLogin:
               _driverIdController.text.trim(),
               driverName: name,
-              // ✅ Pass managerId so depot coords work
               managerId: managerId,
             ),
             transitionsBuilder: (_, a, b, child) =>
@@ -142,21 +149,18 @@ class _DriverLoginScreenState
                       ),
                     ),
                     const SizedBox(height: 16),
+                    const Text('Welcome Back!',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 26,
+                          fontWeight: FontWeight.w700,
+                        )),
                     const Text(
-                      'Welcome Back!',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 26,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const Text(
-                      'Sign in to your driver account',
-                      style: TextStyle(
-                        color: Colors.white70,
-                        fontSize: 14,
-                      ),
-                    ),
+                        'Sign in to your driver account',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 14,
+                        )),
                     const SizedBox(height: 20),
                   ],
                 ),
@@ -168,7 +172,6 @@ class _DriverLoginScreenState
                     horizontal: 24),
                 child: Column(
                   children: [
-                    // Driver ID
                     TextFormField(
                       controller: _driverIdController,
                       decoration: InputDecoration(
@@ -184,8 +187,6 @@ class _DriverLoginScreenState
                       ),
                     ),
                     const SizedBox(height: 16),
-
-                    // Password
                     TextFormField(
                       controller: _passwordController,
                       obscureText: _obscurePassword,
@@ -214,8 +215,6 @@ class _DriverLoginScreenState
                       ),
                     ),
                     const SizedBox(height: 8),
-
-                    // Forgot password
                     Align(
                       alignment: Alignment.centerRight,
                       child: TextButton(
@@ -227,15 +226,13 @@ class _DriverLoginScreenState
                           ),
                         ),
                         child: const Text(
-                          'Forgot Password?',
-                          style: TextStyle(
-                              color: Color(0xFF1B5E20)),
-                        ),
+                            'Forgot Password?',
+                            style: TextStyle(
+                                color:
+                                Color(0xFF1B5E20))),
                       ),
                     ),
                     const SizedBox(height: 8),
-
-                    // Login button
                     SizedBox(
                       width: double.infinity,
                       height: 56,
@@ -262,8 +259,6 @@ class _DriverLoginScreenState
                       ),
                     ),
                     const SizedBox(height: 24),
-
-                    // Register link
                     Row(
                       mainAxisAlignment:
                       MainAxisAlignment.center,

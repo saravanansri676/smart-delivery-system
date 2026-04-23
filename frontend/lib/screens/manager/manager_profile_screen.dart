@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../login_screen.dart';
+import '../../services/logout_helper.dart';
 
 class ManagerProfileScreen extends StatefulWidget {
   final String managerId;
@@ -417,7 +418,7 @@ class _ManagerProfileScreenState
                                 .showSnackBar(
                               const SnackBar(
                                 content: Text(
-                                    '✅ Profile saved!'),
+                                    ' Profile saved!'),
                                 backgroundColor:
                                 Colors.green,
                                 behavior:
@@ -431,7 +432,7 @@ class _ManagerProfileScreenState
                                 .showSnackBar(
                               const SnackBar(
                                 content: Text(
-                                    '❌ Save failed. Try again.'),
+                                    ' Save failed. Try again.'),
                                 backgroundColor:
                                 Colors.red,
                                 behavior:
@@ -517,38 +518,7 @@ class _ManagerProfileScreenState
   }
 
   void _showLogoutDialog() {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16)),
-        title: const Text('Logout'),
-        content: const Text(
-            'Are you sure you want to logout?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(
-                    builder: (_) => const LoginScreen()),
-                    (route) => false,
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Logout'),
-          ),
-        ],
-      ),
-    );
+    showLogoutDialog(context);
   }
 
   String _safeString(dynamic val,

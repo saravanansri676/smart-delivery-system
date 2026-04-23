@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../login_screen.dart';
+import '../../services/logout_helper.dart';
 
 class DriverProfileScreen extends StatefulWidget {
   final String driverId;
@@ -17,6 +19,8 @@ class _DriverProfileScreenState
     extends State<DriverProfileScreen> {
   Map<String, dynamic> driverData = {};
   bool isLoading = true;
+  bool isSaving = false;
+  bool isUpdatingStatus = false;
   final String baseUrl = 'http://10.0.2.2:8080';
 
   @override
@@ -26,57 +30,158 @@ class _DriverProfileScreenState
   }
 
   Future<void> fetchDriver() async {
+    setState(() => isLoading = true);
     try {
-      // ✅ Issue 5 fixed: use profile endpoint directly
-      // instead of GET /drivers/all + client-side filter
-      final response = await http.get(Uri.parse(
-          '$baseUrl/auth/driver/profile/${widget.driverId}'));
+      final profileRes = await http.get(Uri.parse(
+          '$baseUrl/auth/driver/profile'
+              '/${widget.driverId}'));
 
-      if (response.statusCode == 200) {
-        final profileData =
-        jsonDecode(response.body) as Map<String, dynamic>;
+      final driverRes = await http
+          .get(Uri.parse('$baseUrl/drivers/all'));
 
-        // Also fetch full driver details for vehicle info etc.
-        final driverResponse = await http.get(
-            Uri.parse('$baseUrl/drivers/all'));
+      if (driverRes.statusCode == 200) {
+        final all =
+        jsonDecode(driverRes.body) as List;
+        final fullDriver = all.firstWhere(
+              (d) => d['driverId'] == widget.driverId,
+          orElse: () => <String, dynamic>{},
+        );
 
-        if (driverResponse.statusCode == 200) {
-          final all =
-          jsonDecode(driverResponse.body) as List;
-          final fullDriver = all.firstWhere(
-                (d) => d['driverId'] == widget.driverId,
-            orElse: () => {},
-          );
-          // Merge auth profile + driver details
-          setState(() {
-            driverData = {
-              ...Map<String, dynamic>.from(fullDriver),
-              ...profileData,
-            };
-            isLoading = false;
-          });
-        } else {
-          setState(() {
-            driverData = profileData;
-            isLoading = false;
-          });
+        Map<String, dynamic> merged = {};
+        if (fullDriver.isNotEmpty) {
+          merged = Map<String, dynamic>.from(fullDriver);
         }
+        if (profileRes.statusCode == 200) {
+          final profileData = jsonDecode(profileRes.body)
+          as Map<String, dynamic>;
+          merged.addAll(profileData);
+        }
+
+        setState(() {
+          driverData = merged;
+          isLoading = false;
+        });
+      } else {
+        setState(() => isLoading = false);
       }
     } catch (e) {
       setState(() => isLoading = false);
     }
   }
 
-  Future<void> _updateDriver() async {
+  // ── Manual status toggle ────────────────────────────────
+  // AVAILABLE → OFFLINE (early leave)
+  // OFFLINE → AVAILABLE (back on duty)
+  Future<void> _toggleStatus() async {
+    final currentStatus =
+        driverData['status'] ?? 'OFFLINE';
+
+    // ON_DELIVERY drivers cannot manually go offline
+    if (currentStatus == 'ON_DELIVERY') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+              'Cannot change status while on delivery. '
+                  'Complete your deliveries first.'),
+          backgroundColor: Colors.orange,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    final isAvailable = currentStatus == 'AVAILABLE';
+    final newStatus = isAvailable ? 'OFFLINE' : 'AVAILABLE';
+    final actionText =
+    isAvailable ? 'Go Offline' : 'Go Available';
+    final messageText = isAvailable
+        ? 'Are you sure you want to leave early?\n'
+        'Your status will be set to Offline.'
+        : 'Are you sure you want to go back on duty?\n'
+        'Your status will be set to Available.';
+
+    // Confirm dialog
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16)),
+        title: Text(actionText),
+        content: Text(messageText),
+        actions: [
+          TextButton(
+            onPressed: () =>
+                Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () =>
+                Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: isAvailable
+                  ? Colors.orange.shade700
+                  : const Color(0xFF2E7D32),
+              foregroundColor: Colors.white,
+            ),
+            child: Text(actionText),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    setState(() => isUpdatingStatus = true);
+
     try {
-      await http.put(Uri.parse(
-          '$baseUrl/fuel/update/${widget.driverId}'
-              '?fuelLevel=${driverData['fuelLevel']}'));
-      await http.put(Uri.parse(
+      final response = await http.put(Uri.parse(
           '$baseUrl/drivers/status/${widget.driverId}'
-              '?status=${driverData['status']}'));
+              '?status=$newStatus'));
+
+      if (response.statusCode == 200) {
+        setState(() {
+          driverData['status'] = newStatus;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              isAvailable
+                  ? 'You are now Offline. See you tomorrow!'
+                  : 'You are now Available for deliveries!',
+            ),
+            backgroundColor: isAvailable
+                ? Colors.orange.shade700
+                : Colors.green,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10)),
+          ),
+        );
+      } else {
+        _showError('Failed to update status. Try again.');
+      }
     } catch (e) {
-      debugPrint('Update error: $e');
+      _showError('Connection error.');
+    }
+
+    setState(() => isUpdatingStatus = false);
+  }
+
+  // ── Save profile ────────────────────────────────────────
+  Future<bool> _saveProfile(
+      Map<String, dynamic> updatedData) async {
+    try {
+      final response = await http.put(
+        Uri.parse(
+            '$baseUrl/drivers/profile'
+                '/${widget.driverId}'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(updatedData),
+      );
+      return response.statusCode == 200 &&
+          response.body.contains('updated successfully');
+    } catch (e) {
+      return false;
     }
   }
 
@@ -85,15 +190,16 @@ class _DriverProfileScreenState
         text: driverData['name'] ?? '');
     final mobileController = TextEditingController(
         text: driverData['mobileNumber'] ?? '');
-    final companyController = TextEditingController(
-        text: driverData['companyName'] ?? '');
-    final vehicleNoController = TextEditingController(
-        text: driverData['vehicleNo'] ?? '');
-    String selectedVehicleType =
-        driverData['vehicleType'] ?? 'BIKE';
-    String selectedFuel =
-        driverData['fuelLevel'] ?? 'FULL';
-    String selectedSex = driverData['sex'] ?? 'Male';
+    final ageController = TextEditingController(
+        text: driverData['age'] != null &&
+            driverData['age'] != 0
+            ? '${driverData['age']}'
+            : '');
+    String selectedSex =
+    (driverData['sex'] != null &&
+        driverData['sex'].toString().isNotEmpty)
+        ? driverData['sex']
+        : 'Male';
 
     showDialog(
       context: context,
@@ -108,15 +214,27 @@ class _DriverProfileScreenState
               crossAxisAlignment:
               CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Edit Profile',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF1B5E20),
-                  ),
+                Row(
+                  children: [
+                    const Icon(Icons.edit_rounded,
+                        color: Color(0xFF1B5E20),
+                        size: 20),
+                    const SizedBox(width: 8),
+                    const Text('Edit Profile',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF1B5E20),
+                        )),
+                  ],
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 4),
+                Text('Changes will be saved to your account',
+                    style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade500)),
+                const Divider(height: 24),
+
                 _buildEditField(nameController,
                     'Full Name', Icons.person_rounded),
                 const SizedBox(height: 12),
@@ -126,80 +244,96 @@ class _DriverProfileScreenState
                     Icons.phone_rounded,
                     isNumber: true),
                 const SizedBox(height: 12),
-                _buildEditField(companyController,
-                    'Company Name',
-                    Icons.business_rounded),
-                const SizedBox(height: 12),
-                _buildEditField(vehicleNoController,
-                    'Vehicle Number',
-                    Icons.confirmation_number_rounded),
-                const SizedBox(height: 12),
-                _buildDropdown(
-                  label: 'Sex',
-                  value: selectedSex,
-                  items: ['Male', 'Female', 'Other'],
-                  onChanged: (val) => setDialogState(
-                          () => selectedSex = val!),
-                ),
-                const SizedBox(height: 12),
-                _buildDropdown(
-                  label: 'Vehicle Type',
-                  value: selectedVehicleType,
-                  items: ['BIKE', 'VAN', 'TRUCK'],
-                  onChanged: (val) =>
-                      setDialogState(() =>
-                      selectedVehicleType = val!),
-                ),
-                const SizedBox(height: 12),
-                const Text('Fuel Level',
-                    style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.grey,
-                        fontWeight: FontWeight.w500)),
-                const SizedBox(height: 8),
+
+                // Age + Sex
                 Row(
-                  children: ['FULL', 'MID', 'LOW']
-                      .map((level) {
-                    Color color = level == 'FULL'
-                        ? Colors.green
-                        : level == 'MID'
-                        ? Colors.orange
-                        : Colors.red;
-                    return Expanded(
-                      child: GestureDetector(
-                        onTap: () => setDialogState(
-                                () => selectedFuel = level),
-                        child: Container(
-                          margin:
-                          const EdgeInsets.symmetric(
-                              horizontal: 4),
-                          padding:
-                          const EdgeInsets.symmetric(
-                              vertical: 10),
-                          decoration: BoxDecoration(
-                            color: selectedFuel == level
-                                ? color
-                                : color.withOpacity(0.15),
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: ageController,
+                        keyboardType:
+                        TextInputType.number,
+                        inputFormatters: [
+                          FilteringTextInputFormatter
+                              .digitsOnly,
+                          LengthLimitingTextInputFormatter(
+                              3),
+                        ],
+                        decoration: InputDecoration(
+                          labelText: 'Age',
+                          prefixIcon: const Icon(
+                              Icons.cake_rounded,
+                              color: Color(0xFF1B5E20)),
+                          border: OutlineInputBorder(
                             borderRadius:
-                            BorderRadius.circular(8),
+                            BorderRadius.circular(
+                                12),
                           ),
-                          child: Text(
-                            level,
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: selectedFuel == level
-                                  ? Colors.white
-                                  : color,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 12,
-                            ),
-                          ),
+                          contentPadding:
+                          const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 12),
                         ),
                       ),
-                    );
-                  }).toList(),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment:
+                        CrossAxisAlignment.start,
+                        children: [
+                          Text('Sex',
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  color:
+                                  Colors.grey.shade600,
+                                  fontWeight:
+                                  FontWeight.w500)),
+                          const SizedBox(height: 6),
+                          Container(
+                            padding:
+                            const EdgeInsets.symmetric(
+                                horizontal: 12),
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade50,
+                              borderRadius:
+                              BorderRadius.circular(
+                                  12),
+                              border: Border.all(
+                                  color: Colors
+                                      .grey.shade300),
+                            ),
+                            child:
+                            DropdownButtonHideUnderline(
+                              child:
+                              DropdownButton<String>(
+                                value: selectedSex,
+                                isExpanded: true,
+                                items: [
+                                  'Male',
+                                  'Female',
+                                  'Other'
+                                ]
+                                    .map((s) =>
+                                    DropdownMenuItem(
+                                        value: s,
+                                        child:
+                                        Text(s)))
+                                    .toList(),
+                                onChanged: (val) =>
+                                    setDialogState(() =>
+                                    selectedSex =
+                                    val!),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 24),
+
                 Row(
                   children: [
                     Expanded(
@@ -211,9 +345,9 @@ class _DriverProfileScreenState
                           const EdgeInsets.symmetric(
                               vertical: 14),
                           shape: RoundedRectangleBorder(
-                            borderRadius:
-                            BorderRadius.circular(10),
-                          ),
+                              borderRadius:
+                              BorderRadius.circular(
+                                  10)),
                         ),
                         child: const Text('Cancel'),
                       ),
@@ -221,34 +355,49 @@ class _DriverProfileScreenState
                     const SizedBox(width: 12),
                     Expanded(
                       child: ElevatedButton(
-                        onPressed: () async {
-                          setState(() {
-                            driverData['name'] =
-                                nameController.text;
-                            driverData['mobileNumber'] =
-                                mobileController.text;
-                            driverData['companyName'] =
-                                companyController.text;
-                            driverData['vehicleNo'] =
-                                vehicleNoController.text;
-                            driverData['sex'] = selectedSex;
-                            driverData['vehicleType'] =
-                                selectedVehicleType;
-                            driverData['fuelLevel'] =
-                                selectedFuel;
-                          });
-                          await _updateDriver();
+                        onPressed: isSaving
+                            ? null
+                            : () async {
+                          final updated = {
+                            'name': nameController
+                                .text.trim(),
+                            'mobileNumber':
+                            mobileController
+                                .text.trim(),
+                            'age': int.tryParse(
+                                ageController
+                                    .text
+                                    .trim()) ??
+                                0,
+                            'sex': selectedSex,
+                          };
                           Navigator.pop(context);
-                          ScaffoldMessenger.of(context)
-                              .showSnackBar(
-                            const SnackBar(
-                              content:
-                              Text('Profile updated!'),
-                              backgroundColor: Colors.green,
-                              behavior:
-                              SnackBarBehavior.floating,
-                            ),
-                          );
+                          setState(
+                                  () => isSaving = true);
+                          final success =
+                          await _saveProfile(
+                              updated);
+                          if (success) {
+                            await fetchDriver();
+                            ScaffoldMessenger.of(
+                                context)
+                                .showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                    ' Profile saved!'),
+                                backgroundColor:
+                                Colors.green,
+                                behavior:
+                                SnackBarBehavior
+                                    .floating,
+                              ),
+                            );
+                          } else {
+                            _showError(
+                                'Save failed. Try again.');
+                          }
+                          setState(
+                                  () => isSaving = false);
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor:
@@ -258,9 +407,9 @@ class _DriverProfileScreenState
                           const EdgeInsets.symmetric(
                               vertical: 14),
                           shape: RoundedRectangleBorder(
-                            borderRadius:
-                            BorderRadius.circular(10),
-                          ),
+                              borderRadius:
+                              BorderRadius.circular(
+                                  10)),
                         ),
                         child: const Text('Save'),
                       ),
@@ -272,46 +421,6 @@ class _DriverProfileScreenState
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildDropdown({
-    required String label,
-    required String value,
-    required List<String> items,
-    required void Function(String?) onChanged,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label,
-            style: const TextStyle(
-                fontSize: 13,
-                color: Colors.grey,
-                fontWeight: FontWeight.w500)),
-        const SizedBox(height: 8),
-        Container(
-          padding:
-          const EdgeInsets.symmetric(horizontal: 12),
-          decoration: BoxDecoration(
-            color: Colors.grey.shade50,
-            borderRadius: BorderRadius.circular(12),
-            border:
-            Border.all(color: Colors.grey.shade300),
-          ),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              value: value,
-              isExpanded: true,
-              items: items
-                  .map((s) => DropdownMenuItem(
-                  value: s, child: Text(s)))
-                  .toList(),
-              onChanged: onChanged,
-            ),
-          ),
-        ),
-      ],
     );
   }
 
@@ -339,39 +448,20 @@ class _DriverProfileScreenState
     );
   }
 
-  void _showLogoutDialog() {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red.shade700,
+        behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16)),
-        title: const Text('Logout'),
-        content: const Text(
-            'Are you sure you want to logout?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(
-                    builder: (_) => const LoginScreen()),
-                    (route) => false,
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Logout'),
-          ),
-        ],
+            borderRadius: BorderRadius.circular(10)),
       ),
     );
+  }
+
+  void _showLogoutDialog() {
+    showLogoutDialog(context);
   }
 
   Color _getStatusColor(String status) {
@@ -381,10 +471,418 @@ class _DriverProfileScreenState
       case 'ON_DELIVERY':
         return const Color(0xFFE65100);
       case 'OFFLINE':
-        return Colors.grey;
+        return Colors.grey.shade600;
       default:
         return Colors.grey;
     }
+  }
+
+  IconData _getStatusIcon(String status) {
+    switch (status) {
+      case 'AVAILABLE':
+        return Icons.check_circle_rounded;
+      case 'ON_DELIVERY':
+        return Icons.local_shipping_rounded;
+      case 'OFFLINE':
+        return Icons.cancel_rounded;
+      default:
+        return Icons.help_rounded;
+    }
+  }
+
+  String _getStatusButtonLabel(String status) {
+    switch (status) {
+      case 'AVAILABLE':
+        return 'Tap to Go Offline';
+      case 'OFFLINE':
+        return 'Tap to Go Available';
+      case 'ON_DELIVERY':
+        return 'On Delivery — Cannot Change';
+      default:
+        return status;
+    }
+  }
+
+  String _safeString(dynamic val,
+      [String fallback = 'Not set']) {
+    if (val == null) return fallback;
+    final s = val.toString().trim();
+    return s.isEmpty ? fallback : s;
+  }
+
+  String _safeAge(dynamic val) {
+    if (val == null) return 'Not set';
+    final n =
+    val is int ? val : int.tryParse('$val');
+    if (n == null || n == 0) return 'Not set';
+    return '$n';
+  }
+
+  void _showPackages(String status) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => _DriverPackageListScreen(
+          driverId: widget.driverId,
+          status: status,
+          baseUrl: baseUrl,
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (isLoading) {
+      return const Scaffold(
+          body: Center(
+              child: CircularProgressIndicator()));
+    }
+
+    final status = driverData['status'] ?? 'OFFLINE';
+    final statusColor = _getStatusColor(status);
+    final canToggle = status != 'ON_DELIVERY';
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF0F4FF),
+      body: CustomScrollView(
+        slivers: [
+          SliverAppBar(
+            expandedHeight: 220,
+            pinned: true,
+            backgroundColor: const Color(0xFF1B5E20),
+            leading: IconButton(
+              icon: const Icon(
+                  Icons.arrow_back_ios_rounded,
+                  color: Colors.white),
+              onPressed: () => Navigator.pop(context),
+            ),
+            flexibleSpace: FlexibleSpaceBar(
+              background: Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      Color(0xFF1B5E20),
+                      Color(0xFF388E3C)
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                ),
+                child: Column(
+                  mainAxisAlignment:
+                  MainAxisAlignment.center,
+                  children: [
+                    const SizedBox(height: 40),
+                    CircleAvatar(
+                      radius: 45,
+                      backgroundColor:
+                      Colors.white.withOpacity(0.2),
+                      child: Text(
+                        (_safeString(
+                            driverData['name'],
+                            driverData['driverId'] ??
+                                'DR'))
+                            .substring(0, 2)
+                            .toUpperCase(),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 28,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      _safeString(
+                          driverData['name'], 'Driver'),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 22,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    Text(
+                      driverData['driverId'] ?? '',
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 14,
+                        fontFamily: 'monospace',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+          SliverPadding(
+            padding: const EdgeInsets.all(16),
+            sliver: SliverList(
+              delegate: SliverChildListDelegate([
+
+                // ── Status Button ──────────────────────
+                // Tappable — driver can toggle AVAILABLE ↔ OFFLINE
+                GestureDetector(
+                  onTap: isUpdatingStatus
+                      ? null
+                      : _toggleStatus,
+                  child: AnimatedContainer(
+                    duration:
+                    const Duration(milliseconds: 300),
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 16, horizontal: 20),
+                    decoration: BoxDecoration(
+                      color: statusColor.withOpacity(0.1),
+                      borderRadius:
+                      BorderRadius.circular(14),
+                      border: Border.all(
+                          color:
+                          statusColor.withOpacity(0.4),
+                          width: 1.5),
+                    ),
+                    child: isUpdatingStatus
+                        ? Row(
+                      mainAxisAlignment:
+                      MainAxisAlignment.center,
+                      children: [
+                        SizedBox(
+                          width: 16,
+                          height: 16,
+                          child:
+                          CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: statusColor,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Text('Updating...',
+                            style: TextStyle(
+                                color: statusColor,
+                                fontWeight:
+                                FontWeight.w600)),
+                      ],
+                    )
+                        : Row(
+                      mainAxisAlignment:
+                      MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                            _getStatusIcon(status),
+                            color: statusColor,
+                            size: 20),
+                        const SizedBox(width: 8),
+                        Text(
+                          status,
+                          style: TextStyle(
+                            color: statusColor,
+                            fontWeight:
+                            FontWeight.w700,
+                            fontSize: 16,
+                          ),
+                        ),
+                        if (canToggle) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding:
+                            const EdgeInsets
+                                .symmetric(
+                                horizontal: 8,
+                                vertical: 2),
+                            decoration: BoxDecoration(
+                              color: statusColor
+                                  .withOpacity(0.15),
+                              borderRadius:
+                              BorderRadius
+                                  .circular(20),
+                            ),
+                            child: Text(
+                              _getStatusButtonLabel(
+                                  status),
+                              style: TextStyle(
+                                color: statusColor,
+                                fontSize: 10,
+                                fontWeight:
+                                FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+
+                // Helper text below status button
+                if (canToggle)
+                  Center(
+                    child: Text(
+                      status == 'AVAILABLE'
+                          ? 'Tap the status button to leave early'
+                          : 'Tap the status button to go back on duty',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.grey.shade500,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ),
+                const SizedBox(height: 16),
+
+                // Personal Details
+                _buildSection(
+                  title: 'Personal Details',
+                  icon: Icons.person_rounded,
+                  children: [
+                    _buildRow(Icons.cake_rounded, 'Age',
+                        _safeAge(driverData['age'])),
+                    _buildRow(Icons.wc_rounded, 'Sex',
+                        _safeString(driverData['sex'])),
+                    _buildRow(Icons.phone_rounded,
+                        'Mobile',
+                        _safeString(
+                            driverData['mobileNumber'])),
+                  ],
+                ),
+                const SizedBox(height: 16),
+
+                // Work Details
+                _buildSection(
+                  title: 'Work Details',
+                  icon: Icons.work_rounded,
+                  children: [
+                    _buildRow(Icons.business_rounded,
+                        'Company',
+                        _safeString(
+                            driverData['companyName'])),
+                    _buildRow(
+                        Icons.access_time_rounded,
+                        'Work Hours',
+                        '${driverData['workStartTime'] ?? '09:00'}'
+                            ' - '
+                            '${driverData['workEndTime'] ?? '16:00'}'),
+                    _buildRow(Icons.circle, 'Status',
+                        status),
+                  ],
+                ),
+                const SizedBox(height: 16),
+
+                // Performance
+                _buildSection(
+                  title: 'Performance Overview',
+                  icon: Icons.bar_chart_rounded,
+                  children: [
+                    _buildClickableRow(
+                      icon: Icons.inventory_rounded,
+                      label: 'Packages Assigned',
+                      value:
+                      '${driverData['packagesAssigned'] ?? 0}',
+                      color: const Color(0xFF0D47A1),
+                      onTap: () =>
+                          _showPackages('ASSIGNED'),
+                    ),
+                    _buildClickableRow(
+                      icon: Icons.check_circle_rounded,
+                      label: 'Packages Delivered',
+                      value:
+                      '${driverData['packagesDelivered'] ?? 0}',
+                      color: const Color(0xFF2E7D32),
+                      onTap: () =>
+                          _showPackages('DELIVERED'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+
+                // Rating
+                _buildSection(
+                  title: 'Rating',
+                  icon: Icons.star_rounded,
+                  children: [
+                    Row(
+                      children: [
+                        ...List.generate(5, (index) {
+                          final rating =
+                          ((driverData['averageRating'] ??
+                              0.0) as num)
+                              .toDouble();
+                          return Icon(
+                            index < rating.floor()
+                                ? Icons.star_rounded
+                                : index < rating
+                                ? Icons
+                                .star_half_rounded
+                                : Icons
+                                .star_outline_rounded,
+                            color:
+                            const Color(0xFFFFC107),
+                            size: 28,
+                          );
+                        }),
+                        const SizedBox(width: 8),
+                        Text(
+                          '${driverData['averageRating'] ?? 0.0}/5',
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF1A1A2E),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+
+                // Penalties
+                _buildSection(
+                  title: 'Penalties & Behavior',
+                  icon: Icons.warning_rounded,
+                  children: [
+                    _buildRow(Icons.report_rounded,
+                        'Penalties',
+                        '${driverData['penaltyCount'] ?? 0}'),
+                    _buildRow(Icons.list_alt_rounded,
+                        'Reasons',
+                        _safeString(
+                            driverData['penaltyReasons'],
+                            'None')),
+                    _buildRow(Icons.speed_rounded,
+                        'Driving Score',
+                        '${driverData['drivingScore'] ?? 0}/100'),
+                  ],
+                ),
+                const SizedBox(height: 24),
+
+                // Actions
+                _buildSection(
+                  title: 'Actions',
+                  icon: Icons.settings_rounded,
+                  children: [
+                    _buildActionButton(
+                      icon: Icons.edit_rounded,
+                      label: 'Edit Profile',
+                      color: const Color(0xFF1B5E20),
+                      onTap: _showEditDialog,
+                    ),
+                    const SizedBox(height: 12),
+                    _buildActionButton(
+                      icon: Icons.logout_rounded,
+                      label: 'Logout',
+                      color: Colors.red,
+                      onTap: _showLogoutDialog,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+              ]),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildSection({
@@ -461,6 +959,52 @@ class _DriverProfileScreenState
     );
   }
 
+  Widget _buildClickableRow({
+    required IconData icon,
+    required String label,
+    required String value,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          children: [
+            Icon(icon, size: 18, color: color),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(label,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.grey.shade500,
+                    fontWeight: FontWeight.w500,
+                  )),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 12, vertical: 4),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(value,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: color,
+                    fontWeight: FontWeight.w700,
+                  )),
+            ),
+            const SizedBox(width: 4),
+            Icon(Icons.arrow_forward_ios_rounded,
+                size: 12, color: Colors.grey.shade400),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildActionButton({
     required IconData icon,
     required String label,
@@ -474,8 +1018,8 @@ class _DriverProfileScreenState
         decoration: BoxDecoration(
           color: color.withOpacity(0.05),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-              color: color.withOpacity(0.2)),
+          border:
+          Border.all(color: color.withOpacity(0.2)),
         ),
         child: Row(
           children: [
@@ -497,297 +1041,9 @@ class _DriverProfileScreenState
       ),
     );
   }
-
-  void _showPackages(String status) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => _DriverPackageListScreen(
-          driverId: widget.driverId,
-          status: status,
-          baseUrl: baseUrl,
-        ),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (isLoading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
-    }
-
-    final status = driverData['status'] ?? 'OFFLINE';
-    final statusColor = _getStatusColor(status);
-
-    return Scaffold(
-      backgroundColor: const Color(0xFFF0F4FF),
-      body: CustomScrollView(
-        slivers: [
-          SliverAppBar(
-            expandedHeight: 220,
-            pinned: true,
-            backgroundColor: const Color(0xFF1B5E20),
-            leading: IconButton(
-              icon: const Icon(
-                  Icons.arrow_back_ios_rounded,
-                  color: Colors.white),
-              onPressed: () => Navigator.pop(context),
-            ),
-            flexibleSpace: FlexibleSpaceBar(
-              background: Container(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      Color(0xFF1B5E20),
-                      Color(0xFF388E3C)
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                ),
-                child: Column(
-                  mainAxisAlignment:
-                  MainAxisAlignment.center,
-                  children: [
-                    const SizedBox(height: 40),
-                    CircleAvatar(
-                      radius: 45,
-                      backgroundColor:
-                      Colors.white.withOpacity(0.2),
-                      child: Text(
-                        (driverData['name'] ??
-                            driverData['driverId'] ??
-                            'DR')
-                            .substring(0, 2)
-                            .toUpperCase(),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 28,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      driverData['name'] ??
-                          driverData['driverId'] ??
-                          'Driver',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 22,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    Text(
-                      driverData['driverId'] ?? '',
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 14,
-                        fontFamily: 'monospace',
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          SliverPadding(
-            padding: const EdgeInsets.all(16),
-            sliver: SliverList(
-              delegate: SliverChildListDelegate([
-                // Status
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: statusColor.withOpacity(0.1),
-                    borderRadius:
-                    BorderRadius.circular(12),
-                    border: Border.all(
-                        color:
-                        statusColor.withOpacity(0.3)),
-                  ),
-                  child: Row(
-                    mainAxisAlignment:
-                    MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.circle,
-                          color: statusColor, size: 12),
-                      const SizedBox(width: 8),
-                      Text(status,
-                          style: TextStyle(
-                            color: statusColor,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 16,
-                          )),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                _buildSection(
-                  title: 'Personal Details',
-                  icon: Icons.person_rounded,
-                  children: [
-                    _buildRow(Icons.cake_rounded, 'Age',
-                        '${driverData['age'] ?? 'N/A'}'),
-                    _buildRow(Icons.wc_rounded, 'Sex',
-                        driverData['sex'] ?? 'N/A'),
-                    _buildRow(Icons.phone_rounded,
-                        'Mobile',
-                        driverData['mobileNumber'] ??
-                            'N/A'),
-                  ],
-                ),
-                const SizedBox(height: 16),
-
-                _buildSection(
-                  title: 'Work Details',
-                  icon: Icons.work_rounded,
-                  children: [
-                    _buildRow(Icons.business_rounded,
-                        'Company',
-                        driverData['companyName'] ??
-                            'N/A'),
-                    _buildRow(
-                        Icons.access_time_rounded,
-                        'Work Hours',
-                        '${driverData['workStartTime'] ?? '09:00'} - ${driverData['workEndTime'] ?? '16:00'}'),
-                    _buildRow(Icons.circle, 'Status',
-                        status),
-                  ],
-                ),
-                const SizedBox(height: 16),
-
-                _buildSection(
-                  title: 'Performance Overview',
-                  icon: Icons.bar_chart_rounded,
-                  children: [
-                    _buildRow(
-                        Icons.inventory_rounded,
-                        'Packages Assigned',
-                        '${driverData['packagesAssigned'] ?? 0}'),
-                    _buildRow(
-                        Icons.check_circle_rounded,
-                        'Packages Delivered',
-                        '${driverData['packagesDelivered'] ?? 0}'),
-                  ],
-                ),
-                const SizedBox(height: 16),
-
-                _buildSection(
-                  title: 'Rating',
-                  icon: Icons.star_rounded,
-                  children: [
-                    Row(
-                      children: [
-                        ...List.generate(5, (index) {
-                          final rating = (driverData[
-                          'averageRating'] ??
-                              0.0)
-                          as double;
-                          return Icon(
-                            index < rating.floor()
-                                ? Icons.star_rounded
-                                : index < rating
-                                ? Icons
-                                .star_half_rounded
-                                : Icons
-                                .star_outline_rounded,
-                            color:
-                            const Color(0xFFFFC107),
-                            size: 28,
-                          );
-                        }),
-                        const SizedBox(width: 8),
-                        Text(
-                          '${driverData['averageRating'] ?? 0.0}/5',
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFF1A1A2E),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-
-                _buildSection(
-                  title: 'Penalties & Behavior',
-                  icon: Icons.warning_rounded,
-                  children: [
-                    _buildRow(Icons.report_rounded,
-                        'Penalties',
-                        '${driverData['penaltyCount'] ?? 0}'),
-                    _buildRow(Icons.list_alt_rounded,
-                        'Reasons',
-                        driverData['penaltyReasons'] ??
-                            'None'),
-                    _buildRow(Icons.speed_rounded,
-                        'Driving Score',
-                        '${driverData['drivingScore'] ?? 0}/100'),
-                  ],
-                ),
-                const SizedBox(height: 16),
-
-                _buildSection(
-                  title: 'Vehicle Details',
-                  icon: Icons.directions_car_rounded,
-                  children: [
-                    _buildRow(
-                        Icons.confirmation_number_rounded,
-                        'Vehicle No',
-                        driverData['vehicleNo'] ?? 'N/A'),
-                    _buildRow(
-                        Icons.directions_car_rounded,
-                        'Vehicle Type',
-                        driverData['vehicleType'] ??
-                            'N/A'),
-                    _buildRow(Icons.scale_rounded,
-                        'Capacity',
-                        '${driverData['vehicleCapacity'] ?? 0} kg'),
-                    _buildRow(
-                        Icons.local_gas_station_rounded,
-                        'Fuel Level',
-                        driverData['fuelLevel'] ?? 'N/A'),
-                  ],
-                ),
-                const SizedBox(height: 24),
-
-                _buildSection(
-                  title: 'Actions',
-                  icon: Icons.settings_rounded,
-                  children: [
-                    _buildActionButton(
-                      icon: Icons.edit_rounded,
-                      label: 'Edit Profile',
-                      color: const Color(0xFF1B5E20),
-                      onTap: _showEditDialog,
-                    ),
-                    const SizedBox(height: 12),
-                    _buildActionButton(
-                      icon: Icons.logout_rounded,
-                      label: 'Logout',
-                      color: Colors.red,
-                      onTap: _showLogoutDialog,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-              ]),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
-// ── Issue 6 fixed: use /packages/by-driver-status ────────
+// ── Package list ─────────────────────────────────────────
 class _DriverPackageListScreen extends StatefulWidget {
   final String driverId;
   final String status;
@@ -817,12 +1073,10 @@ class _DriverPackageListScreenState
 
   Future<void> fetchPackages() async {
     try {
-      // ✅ Issue 6 fixed: use proper filter endpoint
       final response = await http.get(Uri.parse(
           '${widget.baseUrl}/packages/by-driver-status'
               '?driverId=${widget.driverId}'
               '&status=${widget.status}'));
-
       if (response.statusCode == 200) {
         setState(() {
           packages = jsonDecode(response.body) as List;
@@ -841,7 +1095,8 @@ class _DriverPackageListScreenState
       appBar: AppBar(
         title: Text('${widget.status} Packages'),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_rounded),
+          icon:
+          const Icon(Icons.arrow_back_ios_rounded),
           onPressed: () => Navigator.pop(context),
         ),
       ),

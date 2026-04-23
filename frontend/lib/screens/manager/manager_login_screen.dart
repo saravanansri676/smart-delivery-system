@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'manager_home.dart';
 import 'manager_register_screen.dart';
 import 'manager_forgot_password_screen.dart';
+import '../../services/session_service.dart';
 
 class ManagerLoginScreen extends StatefulWidget {
   const ManagerLoginScreen({super.key});
@@ -35,24 +36,38 @@ class _ManagerLoginScreenState
         Uri.parse('$baseUrl/auth/manager/login'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
-          'managerId': _managerIdController.text.trim(),
+          'managerId':
+          _managerIdController.text.trim(),
           'password': _passwordController.text,
         }),
       );
 
       final result = response.body;
 
+      // Response: SUCCESS:name:email:companyName
       if (result.startsWith('SUCCESS')) {
         final parts = result.split(':');
-        final name = parts.length > 1 ? parts[1] : 'Manager';
-        final email = parts.length > 2 ? parts[2] : '';
-        final company = parts.length > 3 ? parts[3] : '';
+        final name =
+        parts.length > 1 ? parts[1] : 'Manager';
+        final email =
+        parts.length > 2 ? parts[2] : '';
+        final company =
+        parts.length > 3 ? parts[3] : '';
+
+        // ✅ Save session so app remembers on next open
+        await SessionService.saveManagerSession(
+          managerId: _managerIdController.text.trim(),
+          managerName: name,
+          managerEmail: email,
+          companyName: company,
+        );
 
         Navigator.pushReplacement(
           context,
           PageRouteBuilder(
             pageBuilder: (_, a, b) => ManagerHome(
-              managerId: _managerIdController.text.trim(),
+              managerId:
+              _managerIdController.text.trim(),
               managerName: name,
               managerEmail: email,
               companyName: company,
@@ -63,14 +78,16 @@ class _ManagerLoginScreenState
             const Duration(milliseconds: 300),
           ),
         );
-      }else if (result == 'PENDING') {
+      } else if (result == 'PENDING') {
         _showError(
-            'Account not verified. Please check your email for OTP.');
+            'Account not verified. '
+                'Please check your email for OTP.');
       } else {
         _showError('Invalid Manager ID or Password');
       }
     } catch (e) {
-      _showError('Connection error. Is backend running?');
+      _showError(
+          'Connection error. Is backend running?');
     }
 
     setState(() => _isLoading = false);
@@ -120,7 +137,8 @@ class _ManagerLoginScreenState
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
+                        color:
+                        Colors.white.withOpacity(0.2),
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(
@@ -130,43 +148,37 @@ class _ManagerLoginScreenState
                       ),
                     ),
                     const SizedBox(height: 16),
+                    const Text('Welcome Back!',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 26,
+                          fontWeight: FontWeight.w700,
+                        )),
                     const Text(
-                      'Welcome Back!',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 26,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const Text(
-                      'Sign in to your manager account',
-                      style: TextStyle(
-                        color: Colors.white70,
-                        fontSize: 14,
-                      ),
-                    ),
+                        'Sign in to your manager account',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 14,
+                        )),
                     const SizedBox(height: 20),
                   ],
                 ),
               ),
               const SizedBox(height: 32),
 
-              // Form
               Padding(
-                padding:
-                const EdgeInsets.symmetric(horizontal: 24),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 24),
                 child: Column(
                   children: [
-                    // Manager ID
                     TextFormField(
                       controller: _managerIdController,
                       decoration: InputDecoration(
                         labelText: 'Manager ID',
                         hintText: 'Enter your Manager ID',
                         prefixIcon: const Icon(
-                          Icons.badge_rounded,
-                          color: Color(0xFF0D47A1),
-                        ),
+                            Icons.badge_rounded,
+                            color: Color(0xFF0D47A1)),
                         border: OutlineInputBorder(
                           borderRadius:
                           BorderRadius.circular(12),
@@ -174,8 +186,6 @@ class _ManagerLoginScreenState
                       ),
                     ),
                     const SizedBox(height: 16),
-
-                    // Password
                     TextFormField(
                       controller: _passwordController,
                       obscureText: _obscurePassword,
@@ -183,9 +193,8 @@ class _ManagerLoginScreenState
                         labelText: 'Password',
                         hintText: 'Enter your password',
                         prefixIcon: const Icon(
-                          Icons.lock_rounded,
-                          color: Color(0xFF0D47A1),
-                        ),
+                            Icons.lock_rounded,
+                            color: Color(0xFF0D47A1)),
                         suffixIcon: IconButton(
                           icon: Icon(
                             _obscurePassword
@@ -205,8 +214,6 @@ class _ManagerLoginScreenState
                       ),
                     ),
                     const SizedBox(height: 8),
-
-                    // Forgot password
                     Align(
                       alignment: Alignment.centerRight,
                       child: TextButton(
@@ -218,15 +225,13 @@ class _ManagerLoginScreenState
                           ),
                         ),
                         child: const Text(
-                          'Forgot Password?',
-                          style: TextStyle(
-                              color: Color(0xFF0D47A1)),
-                        ),
+                            'Forgot Password?',
+                            style: TextStyle(
+                                color:
+                                Color(0xFF0D47A1))),
                       ),
                     ),
                     const SizedBox(height: 8),
-
-                    // Login button
                     SizedBox(
                       width: double.infinity,
                       height: 56,
@@ -245,27 +250,22 @@ class _ManagerLoginScreenState
                         child: _isLoading
                             ? const CircularProgressIndicator(
                             color: Colors.white)
-                            : const Text(
-                          'Log In',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
+                            : const Text('Log In',
+                            style: TextStyle(
+                                fontSize: 18,
+                                fontWeight:
+                                FontWeight.w600)),
                       ),
                     ),
                     const SizedBox(height: 24),
-
-                    // Register link
                     Row(
                       mainAxisAlignment:
                       MainAxisAlignment.center,
                       children: [
-                        Text(
-                          "Don't have an account? ",
-                          style: TextStyle(
-                              color: Colors.grey.shade600),
-                        ),
+                        Text("Don't have an account? ",
+                            style: TextStyle(
+                                color:
+                                Colors.grey.shade600)),
                         GestureDetector(
                           onTap: () => Navigator.push(
                             context,
@@ -274,13 +274,11 @@ class _ManagerLoginScreenState
                               const ManagerRegisterScreen(),
                             ),
                           ),
-                          child: const Text(
-                            'Register',
-                            style: TextStyle(
-                              color: Color(0xFF0D47A1),
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
+                          child: const Text('Register',
+                              style: TextStyle(
+                                color: Color(0xFF0D47A1),
+                                fontWeight: FontWeight.w700,
+                              )),
                         ),
                       ],
                     ),
@@ -293,5 +291,12 @@ class _ManagerLoginScreenState
         ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _managerIdController.dispose();
+    _passwordController.dispose();
+    super.dispose();
   }
 }
