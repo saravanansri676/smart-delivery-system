@@ -1,6 +1,7 @@
 package com.example.demo.controller;
 
 import com.example.demo.model.Package;
+import com.example.demo.repository.DriverRepository;
 import com.example.demo.repository.PackageRepository;
 import com.example.demo.service.RerouteService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,15 +19,18 @@ public class RerouteController {
     @Autowired
     private PackageRepository packageRepository;
 
+    @Autowired
+    private DriverRepository driverRepository;
+
     // Driver deviated - recalculate from current position
     @GetMapping("/deviation/{driverId}")
     public List<Package> handleDeviation(
             @PathVariable String driverId,
             @RequestParam double currentLat,
             @RequestParam double currentLon) {
-
         return rerouteService.recalculateRoute(
-                driverId, currentLat, currentLon, "DRIVER_DEVIATION");
+                driverId, currentLat, currentLon,
+                "DRIVER_DEVIATION");
     }
 
     // New package added mid-delivery - reroute
@@ -36,12 +40,8 @@ public class RerouteController {
             @RequestParam String packageId,
             @RequestParam double currentLat,
             @RequestParam double currentLon) {
-
-        List<Package> newRoute = rerouteService.addPackageAndReroute(
+        return rerouteService.addPackageAndReroute(
                 driverId, packageId, currentLat, currentLon);
-
-        if (newRoute == null) return null;
-        return newRoute;
     }
 
     // Traffic change - force reroute
@@ -50,9 +50,9 @@ public class RerouteController {
             @PathVariable String driverId,
             @RequestParam double currentLat,
             @RequestParam double currentLon) {
-
         return rerouteService.recalculateRoute(
-                driverId, currentLat, currentLon, "TRAFFIC_CHANGE");
+                driverId, currentLat, currentLon,
+                "TRAFFIC_CHANGE");
     }
 
     // Get remaining stops for driver
@@ -70,7 +70,7 @@ public class RerouteController {
             @RequestParam double currentLat,
             @RequestParam double currentLon) {
 
-        // Mark as delivered
+        // Mark this package as delivered
         Package pkg = packageRepository
                 .findById(packageId).orElse(null);
         if (pkg == null) return "Package not found";
@@ -78,21 +78,31 @@ public class RerouteController {
         pkg.setStatus("DELIVERED");
         packageRepository.save(pkg);
 
-        // Get remaining stops
+        // Check remaining packages
         List<Package> remaining =
                 rerouteService.getRemainingPackages(driverId);
 
         if (remaining.isEmpty()) {
-            return "All packages delivered! Great job! 🎉";
+            // All packages delivered
+            // Set driver status back to AVAILABLE
+            driverRepository.findById(driverId)
+                    .ifPresent(driver -> {
+                        driver.setStatus("AVAILABLE");
+                        driverRepository.save(driver);
+                    });
+
+            return "ALL_DELIVERED";
         }
 
-        // Get next stop
-        List<Package> nextRoute = rerouteService.recalculateRoute(
-                driverId, currentLat, currentLon, "PACKAGE_DELIVERED");
+        // Still packages left — return next stop info
+        List<Package> nextRoute =
+                rerouteService.recalculateRoute(
+                        driverId, currentLat, currentLon,
+                        "PACKAGE_DELIVERED");
 
-        return "Delivered! Next stop: "
+        return "NEXT:"
                 + nextRoute.get(0).getAddress()
-                + " (Package: " + nextRoute.get(0).getPackageName()
-                + ", Deadline: " + nextRoute.get(0).getDeadline() + ")";
+                + "|" + nextRoute.get(0).getPackageName()
+                + "|" + nextRoute.get(0).getDeadline();
     }
 }
