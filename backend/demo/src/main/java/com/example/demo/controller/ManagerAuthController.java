@@ -1,13 +1,18 @@
 package com.example.demo.controller;
 
+import com.example.demo.model.DepotSettings;
 import com.example.demo.model.Manager;
 import com.example.demo.model.ManagerAccount;
+import com.example.demo.repository.DepotSettingsRepository;
 import com.example.demo.repository.ManagerAccountRepository;
 import com.example.demo.repository.ManagerRepository;
+import com.example.demo.service.GeocodingService;
 import com.example.demo.service.ManagerAuthService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -24,6 +29,12 @@ public class ManagerAuthController {
 
     @Autowired
     private ManagerRepository managerRepository;
+
+    @Autowired
+    private DepotSettingsRepository depotRepository;
+
+    @Autowired
+    private GeocodingService geocodingService;
 
     // ── Login ───────────────────────────────────────────────
     @PostMapping("/login")
@@ -74,16 +85,12 @@ public class ManagerAuthController {
     }
 
     // ── Get manager profile ─────────────────────────────────
-    // Returns merged data from both ManagerAccount
-    // and Manager tables so frontend gets everything
-    // in one call.
     @GetMapping("/profile/{managerId}")
     public Map<String, Object> getProfile(
             @PathVariable String managerId) {
 
         Map<String, Object> result = new HashMap<>();
 
-        // Base auth data from manager_accounts
         Optional<ManagerAccount> account =
                 accountRepository.findById(managerId);
         if (account.isPresent()) {
@@ -91,12 +98,12 @@ public class ManagerAuthController {
             result.put("managerId", mgr.getManagerId());
             result.put("name", mgr.getName());
             result.put("email", mgr.getEmail());
-            result.put("companyName", mgr.getCompanyName());
+            result.put("companyName",
+                    mgr.getCompanyName());
             result.put("accountStatus",
                     mgr.getAccountStatus());
         }
 
-        // Extended profile data from managers table
         Optional<Manager> manager =
                 managerRepository.findById(managerId);
         if (manager.isPresent()) {
@@ -107,21 +114,23 @@ public class ManagerAuthController {
                     mgr.getMobileNumber());
             result.put("officeLocation",
                     mgr.getOfficeLocation());
-            result.put("joinedDate", mgr.getJoinedDate());
+            result.put("joinedDate",
+                    mgr.getJoinedDate());
         }
 
         return result;
     }
 
     // ── Update manager profile ──────────────────────────────
-    // Saves editable fields to both tables.
-    // Creates Manager record if it doesn't exist yet.
+    // When officeLocation + coordinates are provided,
+    // automatically saves them as depot settings too.
+    // This removes the need for a separate Depot Settings screen.
     @PutMapping("/profile/{managerId}")
     public String updateProfile(
             @PathVariable String managerId,
             @RequestBody Map<String, Object> body) {
 
-        // Update ManagerAccount (name, email, company)
+        // Update ManagerAccount
         Optional<ManagerAccount> accountOpt =
                 accountRepository.findById(managerId);
         if (accountOpt.isEmpty())
@@ -129,16 +138,17 @@ public class ManagerAuthController {
 
         ManagerAccount account = accountOpt.get();
         if (body.containsKey("name"))
-            account.setName((String) body.get("name"));
+            account.setName(
+                    (String) body.get("name"));
         if (body.containsKey("email"))
-            account.setEmail((String) body.get("email"));
+            account.setEmail(
+                    (String) body.get("email"));
         if (body.containsKey("companyName"))
             account.setCompanyName(
                     (String) body.get("companyName"));
         accountRepository.save(account);
 
         // Update or create Manager record
-        // (age, sex, mobile, location, joinedDate)
         Manager manager = managerRepository
                 .findById(managerId)
                 .orElse(new Manager());
@@ -172,6 +182,40 @@ public class ManagerAuthController {
                     (String) body.get("joinedDate"));
 
         managerRepository.save(manager);
+
+        // ── Auto-save depot from office location ────────────
+        // If the request includes lat/lon (from address
+        // autocomplete in the profile edit screen),
+        // save them as the depot for this manager.
+        // No separate depot screen needed.
+        if (body.containsKey("officeLatitude")
+                && body.containsKey("officeLongitude")) {
+
+            double lat = ((Number) body.get(
+                    "officeLatitude")).doubleValue();
+            double lon = ((Number) body.get(
+                    "officeLongitude")).doubleValue();
+            String address = (String) body.getOrDefault(
+                    "officeLocation", "");
+            String depotName = account.getCompanyName()
+                    + " Office";
+
+            DepotSettings depot = depotRepository
+                    .findById(managerId)
+                    .orElse(new DepotSettings());
+
+            depot.setManagerId(managerId);
+            depot.setDepotName(depotName);
+            depot.setLatitude(lat);
+            depot.setLongitude(lon);
+            depot.setAddress(address);
+            depot.setUpdatedAt(LocalDateTime.now()
+                    .format(DateTimeFormatter.ofPattern(
+                            "yyyy-MM-dd HH:mm:ss")));
+
+            depotRepository.save(depot);
+        }
+
         return "Profile updated successfully";
     }
 }
