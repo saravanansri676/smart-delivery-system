@@ -8,7 +8,6 @@ import 'view_drivers_screen.dart';
 import 'delivery_status_screen.dart';
 import 'manager_profile_screen.dart';
 import 'driver_request_screen.dart';
-import 'depot_settings_screen.dart';
 import '../../services/depot_service.dart';
 
 class ManagerHome extends StatefulWidget {
@@ -888,17 +887,6 @@ class _ManagerHomeState extends State<ManagerHome> {
                     color: const Color(0xFF6A1B9A),
                     onTap: () => _navigate(context,
                         const DeliveryStatusScreen())),
-                _buildMenuCard(context,
-                    icon: Icons.warehouse_rounded,
-                    title: 'Depot Settings',
-                    subtitle: 'Set warehouse location',
-                    color: const Color(0xFF00838F),
-                    onTap: () => _navigate(
-                      context,
-                      DepotSettingsScreen(
-                          managerId:
-                          widget.managerId),
-                    )),
               ],
             ),
           ],

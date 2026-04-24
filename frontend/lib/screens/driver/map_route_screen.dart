@@ -8,7 +8,7 @@ import '../../services/depot_service.dart';
 
 class MapRouteScreen extends StatefulWidget {
   final String driverId;
-  final String managerId; // needed to fetch depot coords
+  final String managerId;
 
   const MapRouteScreen({
     super.key,
@@ -25,16 +25,23 @@ class _MapRouteScreenState
     extends State<MapRouteScreen> {
   List route = [];
   bool isLoading = true;
+  bool isLoadingRoute = false;
   String weatherWarning = '';
   String weatherIcon = '🌤';
   Map weatherData = {};
 
-  // Start as default, updated after depot fetch
+  // Road-following polyline points from OSRM
+  List<LatLng> roadPolylinePoints = [];
+
   LatLng _startLocation = LatLng(
       DepotService.defaultLat, DepotService.defaultLon);
 
   final String baseUrl = 'http://10.0.2.2:8080';
   final WeatherService weatherService = WeatherService();
+
+  // OSRM public API — free, no key needed
+  static const String osrmBase =
+      'http://router.project-osrm.org/route/v1/driving';
 
   @override
   void initState() {
@@ -43,14 +50,11 @@ class _MapRouteScreenState
   }
 
   Future<void> _loadWithDepot() async {
-    // Step 1: fetch depot coords
-    final coords = await DepotService.getDepotCoords(
-        widget.managerId);
+    final coords =
+    await DepotService.getDepotCoords(widget.managerId);
     setState(() {
       _startLocation = LatLng(coords[0], coords[1]);
     });
-
-    // Step 2: fetch route and weather together
     await fetchRouteAndWeather();
   }
 
@@ -60,7 +64,7 @@ class _MapRouteScreenState
       final lat = _startLocation.latitude;
       final lon = _startLocation.longitude;
 
-      // Fetch optimized route
+      // 1. Fetch optimized stop order from backend
       final response = await http.get(Uri.parse(
           '$baseUrl/route/optimize/${widget.driverId}'
               '?startLat=$lat&startLon=$lon'));
@@ -68,7 +72,7 @@ class _MapRouteScreenState
       if (response.statusCode == 200) {
         final routeData = jsonDecode(response.body);
 
-        // Fetch weather for depot location
+        // 2. Fetch weather
         final weather =
         await weatherService.getWeather(lat, lon);
 
@@ -81,70 +85,176 @@ class _MapRouteScreenState
               weatherService.getWeatherIcon(weather);
           isLoading = false;
         });
+
+        // 3. Fetch road-following route from OSRM
+        if (routeData.isNotEmpty) {
+          await _fetchRoadRoute();
+        }
       }
     } catch (e) {
       setState(() => isLoading = false);
     }
   }
 
-  List<LatLng> getRoutePoints() {
-    List<LatLng> points = [_startLocation];
-    for (var pkg in route) {
+  // ── Fetch road-following route from OSRM ────────────────
+  Future<void> _fetchRoadRoute() async {
+    if (route.isEmpty) return;
+
+    setState(() => isLoadingRoute = true);
+
+    try {
+      // Build coordinate string: lon,lat;lon,lat;...
+      // OSRM uses longitude FIRST then latitude
+      final StringBuffer coords = StringBuffer();
+
+      // Start: depot location
+      coords.write(
+          '${_startLocation.longitude},'
+              '${_startLocation.latitude}');
+
+      // Each delivery stop
+      for (final pkg in route) {
+        final lat =
+        (pkg['latitude'] as num).toDouble();
+        final lon =
+        (pkg['longitude'] as num).toDouble();
+        coords.write(';$lon,$lat');
+      }
+
+      final url = '$osrmBase/${coords.toString()}'
+          '?overview=full'
+          '&geometries=geojson'
+          '&steps=false';
+
+      final response = await http
+          .get(Uri.parse(url))
+          .timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+
+        if (data['code'] == 'Ok' &&
+            data['routes'] != null &&
+            (data['routes'] as List).isNotEmpty) {
+
+          final geometry =
+          data['routes'][0]['geometry'];
+          final coordinates =
+          geometry['coordinates'] as List;
+
+          // Convert [lon, lat] pairs to LatLng
+          final List<LatLng> points = coordinates
+              .map<LatLng>((c) => LatLng(
+            (c[1] as num).toDouble(),
+            (c[0] as num).toDouble(),
+          ))
+              .toList();
+
+          setState(() {
+            roadPolylinePoints = points;
+            isLoadingRoute = false;
+          });
+        } else {
+          // OSRM returned error — fallback
+          setState(() {
+            roadPolylinePoints = _straightLinePoints();
+            isLoadingRoute = false;
+          });
+        }
+      } else {
+        setState(() {
+          roadPolylinePoints = _straightLinePoints();
+          isLoadingRoute = false;
+        });
+      }
+    } catch (e) {
+      // Network error or timeout — use straight lines
+      debugPrint('OSRM error: $e');
+      setState(() {
+        roadPolylinePoints = _straightLinePoints();
+        isLoadingRoute = false;
+      });
+    }
+  }
+
+  // Fallback: straight lines if OSRM fails
+  List<LatLng> _straightLinePoints() {
+    final List<LatLng> points = [_startLocation];
+    for (final pkg in route) {
       points.add(LatLng(
-        pkg['latitude'].toDouble(),
-        pkg['longitude'].toDouble(),
+        (pkg['latitude'] as num).toDouble(),
+        (pkg['longitude'] as num).toDouble(),
       ));
     }
     return points;
   }
 
+  // ── Markers ──────────────────────────────────────────────
   List<Marker> getMarkers() {
     List<Marker> markers = [];
 
-    // Start / depot marker
+    // Depot marker
     markers.add(Marker(
       point: _startLocation,
-      width: 40,
-      height: 40,
-      child: const Icon(
-        Icons.warehouse,
-        color: Colors.blue,
-        size: 35,
+      width: 44,
+      height: 44,
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.blue.shade700,
+          shape: BoxShape.circle,
+          border:
+          Border.all(color: Colors.white, width: 2),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.blue.withOpacity(0.4),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: const Icon(
+          Icons.warehouse_rounded,
+          color: Colors.white,
+          size: 22,
+        ),
       ),
     ));
 
-    // Package stop markers
+    // Stop markers
     for (int i = 0; i < route.length; i++) {
       final pkg = route[i];
       markers.add(Marker(
         point: LatLng(
-          pkg['latitude'].toDouble(),
-          pkg['longitude'].toDouble(),
+          (pkg['latitude'] as num).toDouble(),
+          (pkg['longitude'] as num).toDouble(),
         ),
-        width: 40,
-        height: 50,
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                color: const Color(0xFF1565C0),
-                shape: BoxShape.circle,
-                border: Border.all(
-                    color: Colors.white, width: 2),
+        width: 36,
+        height: 36,
+        child: Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFF0D47A1),
+            shape: BoxShape.circle,
+            border: Border.all(
+                color: Colors.white, width: 2),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF0D47A1)
+                    .withOpacity(0.4),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
               ),
-              child: Text(
-                '${i + 1}',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                ),
+            ],
+          ),
+          child: Center(
+            child: Text(
+              '${i + 1}',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
               ),
             ),
-            const Icon(Icons.location_pin,
-                color: Colors.red, size: 20),
-          ],
+          ),
         ),
       ));
     }
@@ -165,10 +275,9 @@ class _MapRouteScreenState
         ),
         actions: [
           IconButton(
-            icon: const Text('🔄',
-                style: TextStyle(fontSize: 20)),
+            icon: const Icon(Icons.refresh_rounded),
             onPressed: fetchRouteAndWeather,
-          )
+          ),
         ],
       ),
       body: isLoading
@@ -176,13 +285,12 @@ class _MapRouteScreenState
           child: CircularProgressIndicator())
           : Column(
         children: [
-          // Weather warning banner
+          // Weather banner
           if (weatherWarning.isNotEmpty)
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(12),
-              color: weatherService
-                  .isDangerousWeather(
+              color: weatherService.isDangerousWeather(
                   weatherData
                   as Map<String, dynamic>)
                   ? Colors.red.shade100
@@ -213,15 +321,47 @@ class _MapRouteScreenState
               ),
             ),
 
+          // Road route loading banner
+          if (isLoadingRoute)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(
+                  vertical: 6),
+              color: Colors.blue.shade50,
+              child: Row(
+                mainAxisAlignment:
+                MainAxisAlignment.center,
+                children: [
+                  SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.blue.shade700,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Loading road route...',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.blue.shade700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
           // Map
           Expanded(
             flex: 3,
             child: FlutterMap(
               options: MapOptions(
                 initialCenter: _startLocation,
-                initialZoom: 11,
+                initialZoom: 12,
               ),
               children: [
+                // OpenStreetMap tiles
                 TileLayer(
                   urlTemplate:
                   'https://tile.openstreetmap.org'
@@ -229,18 +369,38 @@ class _MapRouteScreenState
                   userAgentPackageName:
                   'com.example.smart_delivery_app',
                 ),
-                if (route.isNotEmpty)
+
+                // ✅ Road-following polyline from OSRM
+                // Shows thin grey line while loading,
+                // replaces with thick blue road line
+                // once OSRM responds
+                if (roadPolylinePoints.isNotEmpty)
                   PolylineLayer(
                     polylines: [
                       Polyline(
-                        points: getRoutePoints(),
-                        strokeWidth: 4,
+                        points: roadPolylinePoints,
+                        strokeWidth: 4.5,
                         color:
                         const Color(0xFF1565C0),
                       ),
                     ],
+                  )
+                // Thin grey fallback while loading
+                else if (route.isNotEmpty)
+                  PolylineLayer(
+                    polylines: [
+                      Polyline(
+                        points:
+                        _straightLinePoints(),
+                        strokeWidth: 1.5,
+                        color: Colors.grey.shade400,
+                      ),
+                    ],
                   ),
-                MarkerLayer(markers: getMarkers()),
+
+                // Markers on top
+                MarkerLayer(
+                    markers: getMarkers()),
               ],
             ),
           ),
@@ -264,14 +424,25 @@ class _MapRouteScreenState
                     child: Text(
                       '${index + 1}',
                       style: const TextStyle(
-                          color: Colors.white),
+                        color: Colors.white,
+                        fontWeight:
+                        FontWeight.bold,
+                      ),
                     ),
                   ),
                   title: Text(
-                      pkg['packageName'] ?? ''),
+                    pkg['packageName'] ?? '',
+                    style: const TextStyle(
+                        fontWeight:
+                        FontWeight.w600),
+                  ),
                   subtitle: Text(
-                      '${pkg['address']} • '
-                          'Deadline: ${pkg['deadline']}'),
+                    '${pkg['address']} • '
+                        'Deadline: ${pkg['deadline']}',
+                    maxLines: 2,
+                    overflow:
+                    TextOverflow.ellipsis,
+                  ),
                   dense: true,
                 );
               },

@@ -16,8 +16,8 @@ class DepotService {
 
   // Default fallback coordinates (Chennai)
   // Used when manager has not yet configured depot
-  static const double defaultLat = 13.0827;
-  static const double defaultLon = 80.2707;
+  static const double defaultLat = 11.0939;
+  static const double defaultLon = 76.9447;
 
   /// Fetch depot coordinates for a manager.
   /// Returns [lat, lon] — never null.

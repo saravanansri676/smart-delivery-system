@@ -232,32 +232,7 @@ class DriverProfileScreen extends StatelessWidget {
                         '${driver['drivingScore'] ?? 0}/100'),
                   ],
                 ),
-                const SizedBox(height: 16),
-
-                // Vehicle Details
-                _buildSection(
-                  title: 'Vehicle Details',
-                  icon: Icons.directions_car_rounded,
-                  children: [
-                    _buildRow(
-                        Icons.confirmation_number_rounded,
-                        'Vehicle No',
-                        driver['vehicleNo'] ?? 'N/A'),
-                    _buildRow(
-                        Icons.directions_car_rounded,
-                        'Vehicle Type',
-                        driver['vehicleType'] ?? 'N/A'),
-                    _buildRow(
-                        Icons.scale_rounded,
-                        'Capacity',
-                        '${driver['vehicleCapacity'] ?? 0} kg'),
-                    _buildRow(
-                        Icons.local_gas_station_rounded,
-                        'Fuel Level',
-                        driver['fuelLevel'] ?? 'N/A'),
-                  ],
-                ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 16)
               ]),
             ),
           ),
