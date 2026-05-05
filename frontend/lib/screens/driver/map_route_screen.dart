@@ -55,8 +55,7 @@ class _MapRouteScreenState
     final coords = await DepotService.getDepotCoords(
         widget.managerId);
     setState(() {
-      _startLocation =
-          LatLng(coords[0], coords[1]);
+      _startLocation = LatLng(coords[0], coords[1]);
     });
     await fetchRouteAndWeather();
   }
@@ -67,7 +66,6 @@ class _MapRouteScreenState
       final lat = _startLocation.latitude;
       final lon = _startLocation.longitude;
 
-      // Choose endpoint based on route type
       String endpoint;
       switch (widget.routeType) {
         case 'TRAFFIC_LESS':
@@ -89,9 +87,7 @@ class _MapRouteScreenState
       await http.get(Uri.parse(endpoint));
 
       if (response.statusCode == 200) {
-        final routeData =
-        jsonDecode(response.body);
-
+        final routeData = jsonDecode(response.body);
         final weather =
         await weatherService.getWeather(lat, lon);
 
@@ -114,16 +110,23 @@ class _MapRouteScreenState
     }
   }
 
+  // ── Fetch road route from OSRM ───────────────────────────
+  // Route: Depot → Stop1 → Stop2 → ... → LastStop → Depot
+  // The depot is added as BOTH the first AND last point
+  // so driver knows how to return home.
   Future<void> _fetchRoadRoute() async {
     if (route.isEmpty) return;
     setState(() => isLoadingRoute = true);
 
     try {
       final StringBuffer coords = StringBuffer();
+
+      // Start: depot
       coords.write(
           '${_startLocation.longitude},'
               '${_startLocation.latitude}');
 
+      // All delivery stops
       for (final pkg in route) {
         final lat =
         (pkg['latitude'] as num).toDouble();
@@ -131,6 +134,11 @@ class _MapRouteScreenState
         (pkg['longitude'] as num).toDouble();
         coords.write(';$lon,$lat');
       }
+
+      // ✅ End: depot again (return trip)
+      coords.write(
+          ';${_startLocation.longitude},'
+              '${_startLocation.latitude}');
 
       final url =
           '$osrmBase/${coords.toString()}'
@@ -184,6 +192,7 @@ class _MapRouteScreenState
     }
   }
 
+  // Fallback straight lines — also includes return to depot
   List<LatLng> _straightLinePoints() {
     final List<LatLng> points = [_startLocation];
     for (final pkg in route) {
@@ -192,10 +201,11 @@ class _MapRouteScreenState
         (pkg['longitude'] as num).toDouble(),
       ));
     }
+    // Return to depot
+    points.add(_startLocation);
     return points;
   }
 
-  // Route type color for polyline
   Color get _routeColor {
     switch (widget.routeType) {
       case 'TRAFFIC_LESS':
@@ -225,17 +235,17 @@ class _MapRouteScreenState
   List<Marker> getMarkers() {
     List<Marker> markers = [];
 
-    // Depot marker
+    // Depot marker (start)
     markers.add(Marker(
       point: _startLocation,
-      width: 44,
-      height: 44,
+      width: 48,
+      height: 48,
       child: Container(
         decoration: BoxDecoration(
           color: Colors.blue.shade700,
           shape: BoxShape.circle,
-          border: Border.all(
-              color: Colors.white, width: 2),
+          border:
+          Border.all(color: Colors.white, width: 2),
           boxShadow: [
             BoxShadow(
               color: Colors.blue.withOpacity(0.4),
@@ -247,12 +257,12 @@ class _MapRouteScreenState
         child: const Icon(
           Icons.warehouse_rounded,
           color: Colors.white,
-          size: 22,
+          size: 24,
         ),
       ),
     ));
 
-    // Stop markers
+    // Delivery stop markers
     for (int i = 0; i < route.length; i++) {
       final pkg = route[i];
       markers.add(Marker(
@@ -306,7 +316,6 @@ class _MapRouteScreenState
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
-          // Route type badge
           Container(
             margin: const EdgeInsets.symmetric(
                 vertical: 10, horizontal: 4),
@@ -314,8 +323,7 @@ class _MapRouteScreenState
                 horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
               color: Colors.white.withOpacity(0.2),
-              borderRadius:
-              BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(20),
             ),
             child: Text(
               _routeTypeLabel,
@@ -341,8 +349,7 @@ class _MapRouteScreenState
           if (weatherWarning.isNotEmpty)
             Container(
               width: double.infinity,
-              padding:
-              const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(12),
               color: weatherService
                   .isDangerousWeather(
                   weatherData as Map<
@@ -382,8 +389,7 @@ class _MapRouteScreenState
           if (isLoadingRoute)
             Container(
               width: double.infinity,
-              padding:
-              const EdgeInsets.symmetric(
+              padding: const EdgeInsets.symmetric(
                   vertical: 6),
               color: Colors.blue.shade50,
               child: Row(
@@ -396,8 +402,7 @@ class _MapRouteScreenState
                     child:
                     CircularProgressIndicator(
                       strokeWidth: 2,
-                      color:
-                      Colors.blue.shade700,
+                      color: Colors.blue.shade700,
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -405,8 +410,7 @@ class _MapRouteScreenState
                     'Loading road route...',
                     style: TextStyle(
                       fontSize: 12,
-                      color:
-                      Colors.blue.shade700,
+                      color: Colors.blue.shade700,
                     ),
                   ),
                 ],
@@ -429,15 +433,11 @@ class _MapRouteScreenState
                   userAgentPackageName:
                   'com.example.smart_delivery_app',
                 ),
-
-                // Road-following polyline
-                // Color changes based on route type
                 if (roadPolylinePoints.isNotEmpty)
                   PolylineLayer(
                     polylines: [
                       Polyline(
-                        points:
-                        roadPolylinePoints,
+                        points: roadPolylinePoints,
                         strokeWidth: 4.5,
                         color: _routeColor,
                       ),
@@ -455,14 +455,13 @@ class _MapRouteScreenState
                       ),
                     ],
                   ),
-
                 MarkerLayer(
                     markers: getMarkers()),
               ],
             ),
           ),
 
-          // Stop list
+          // Stop list — includes return to depot
           Expanded(
             flex: 2,
             child: route.isEmpty
@@ -472,9 +471,48 @@ class _MapRouteScreenState
                 : ListView.builder(
               padding:
               const EdgeInsets.all(8),
-              itemCount: route.length,
+              // +1 for the return to depot row
+              itemCount: route.length + 1,
               itemBuilder:
                   (context, index) {
+                // Last item = return to depot
+                if (index == route.length) {
+                  return ListTile(
+                    leading: Container(
+                      width: 36,
+                      height: 36,
+                      decoration:
+                      BoxDecoration(
+                        color: Colors
+                            .blue.shade700,
+                        shape:
+                        BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons
+                            .warehouse_rounded,
+                        color: Colors.white,
+                        size: 18,
+                      ),
+                    ),
+                    title: const Text(
+                      'Return to Depot',
+                      style: TextStyle(
+                        fontWeight:
+                        FontWeight.w700,
+                        color: Color(
+                            0xFF1565C0),
+                      ),
+                    ),
+                    subtitle: const Text(
+                      'End of delivery route',
+                      style: TextStyle(
+                          fontSize: 12),
+                    ),
+                    dense: true,
+                  );
+                }
+
                 final pkg = route[index];
                 return ListTile(
                   leading: CircleAvatar(

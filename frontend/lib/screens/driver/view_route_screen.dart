@@ -45,18 +45,15 @@ class _ViewRouteScreenState
     await fetchRoute();
   }
 
-  // ── Fetch route based on selected type ──────────────────
   Future<void> fetchRoute() async {
     setState(() => isLoading = true);
     try {
       String endpoint;
-
       switch (widget.routeType) {
         case 'TRAFFIC_LESS':
           endpoint =
           '$baseUrl/behavior/route/${widget.driverId}'
-              '?startLat=$_startLat'
-              '&startLon=$_startLon';
+              '?startLat=$_startLat&startLon=$_startLon';
           break;
         case 'PETROL_BUNK':
         case 'WEATHER_GOOD':
@@ -64,8 +61,7 @@ class _ViewRouteScreenState
         default:
           endpoint =
           '$baseUrl/route/optimize/${widget.driverId}'
-              '?startLat=$_startLat'
-              '&startLon=$_startLon';
+              '?startLat=$_startLat&startLon=$_startLon';
           break;
       }
 
@@ -192,7 +188,8 @@ class _ViewRouteScreenState
                     const SizedBox(height: 8),
                     const Text(
                       'Great job! All packages '
-                          'delivered successfully.',
+                          'delivered successfully.\n'
+                          'Head back to the depot.',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 14,
@@ -308,7 +305,6 @@ class _ViewRouteScreenState
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
-          // Route type badge
           Container(
             margin: const EdgeInsets.symmetric(
                 vertical: 10, horizontal: 4),
@@ -360,7 +356,7 @@ class _ViewRouteScreenState
       )
           : Column(
         children: [
-          // Route type + View Map button bar
+          // Route type bar + View Map button
           Container(
             width: double.infinity,
             padding:
@@ -379,7 +375,8 @@ class _ViewRouteScreenState
                   child: Text(
                     '$_routeTypeLabel route • '
                         '${route.length} stop'
-                        '${route.length == 1 ? '' : 's'}',
+                        '${route.length == 1 ? '' : 's'}'
+                        ' + return',
                     style: TextStyle(
                       fontSize: 12,
                       color: _routeTypeColor,
@@ -388,8 +385,7 @@ class _ViewRouteScreenState
                     ),
                   ),
                 ),
-
-                // ✅ View Map button
+                // View Map button
                 GestureDetector(
                   onTap: () =>
                       Navigator.push(
@@ -435,7 +431,8 @@ class _ViewRouteScreenState
                             Colors.white,
                             fontSize: 12,
                             fontWeight:
-                            FontWeight.w600,
+                            FontWeight
+                                .w600,
                           ),
                         ),
                       ],
@@ -451,15 +448,98 @@ class _ViewRouteScreenState
             child: ListView.builder(
               padding:
               const EdgeInsets.all(16),
-              itemCount: route.length,
+              // +1 for return to depot row
+              itemCount: route.length + 1,
               itemBuilder: (context, index) {
+                // ── Return to depot row ──
+                if (index == route.length) {
+                  return Container(
+                    margin:
+                    const EdgeInsets.only(
+                        bottom: 12),
+                    padding:
+                    const EdgeInsets.all(
+                        14),
+                    decoration: BoxDecoration(
+                      color: Colors
+                          .blue.shade50,
+                      borderRadius:
+                      BorderRadius
+                          .circular(12),
+                      border: Border.all(
+                          color: Colors
+                              .blue.shade200),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 40,
+                          height: 40,
+                          decoration:
+                          BoxDecoration(
+                            color: Colors
+                                .blue.shade700,
+                            shape:
+                            BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons
+                                .warehouse_rounded,
+                            color:
+                            Colors.white,
+                            size: 20,
+                          ),
+                        ),
+                        const SizedBox(
+                            width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment:
+                            CrossAxisAlignment
+                                .start,
+                            children: [
+                              Text(
+                                'Return to Depot',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight:
+                                  FontWeight
+                                      .w700,
+                                  color: Colors
+                                      .blue
+                                      .shade800,
+                                ),
+                              ),
+                              Text(
+                                'End of delivery route',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors
+                                      .blue
+                                      .shade400,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Icon(
+                          Icons.home_rounded,
+                          color: Colors
+                              .blue.shade700,
+                          size: 24,
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                // ── Regular package row ──
                 final pkg = route[index];
                 return Card(
                   margin:
                   const EdgeInsets.only(
                       bottom: 12),
-                  shape:
-                  RoundedRectangleBorder(
+                  shape: RoundedRectangleBorder(
                     borderRadius:
                     BorderRadius.circular(
                         12),
