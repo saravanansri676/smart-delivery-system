@@ -17,10 +17,12 @@ public class DriverController {
 
     // Add driver
     @PostMapping("/add")
-    public String addDriver(@RequestBody Driver driver) {
+    public String addDriver(
+            @RequestBody Driver driver) {
         driver.setStatus("AVAILABLE");
         driverRepository.save(driver);
-        return "Driver registered: " + driver.getDriverId();
+        return "Driver registered: "
+                + driver.getDriverId();
     }
 
     // Get all drivers
@@ -34,16 +36,18 @@ public class DriverController {
     public String updateStatus(
             @PathVariable String id,
             @RequestParam String status) {
-        return driverRepository.findById(id).map(driver -> {
-            driver.setStatus(status);
-            driverRepository.save(driver);
-            return "Driver status updated to: " + status;
-        }).orElse("Driver not found");
+        return driverRepository.findById(id)
+                .map(driver -> {
+                    driver.setStatus(status);
+                    driverRepository.save(driver);
+                    return "Driver status updated to: "
+                            + status;
+                })
+                .orElse("Driver not found");
     }
 
-    // ── Update driver profile ───────────────────────────────
-    // Saves editable personal fields: name, age, sex, mobile
-    // Vehicle details are managed separately via fuel screen
+    // ── Update personal profile ─────────────────────────────
+    // Saves: name, age, sex, mobileNumber
     @PutMapping("/profile/{driverId}")
     public String updateProfile(
             @PathVariable String driverId,
@@ -59,15 +63,15 @@ public class DriverController {
                     if (body.containsKey("age")) {
                         Object ageVal = body.get("age");
                         if (ageVal instanceof Integer)
-                            driver.setAge((Integer) ageVal);
+                            driver.setAge(
+                                    (Integer) ageVal);
                         else if (ageVal instanceof String) {
                             try {
                                 driver.setAge(
                                         Integer.parseInt(
                                                 (String) ageVal));
-                            } catch (
-                                    NumberFormatException ignored) {
-                            }
+                            } catch (NumberFormatException
+                                    ignored) {}
                         }
                     }
 
@@ -82,6 +86,62 @@ public class DriverController {
 
                     driverRepository.save(driver);
                     return "Profile updated successfully";
+                })
+                .orElse("Driver not found");
+    }
+
+    // ── Update vehicle details ──────────────────────────────
+    // Called when driver fills vehicle form
+    // before starting deliveries.
+    // Saves: vehicleType, vehicleNo,
+    //        vehicleCapacity, fuelLevel
+    // Also sets driver status to ON_DELIVERY
+    // since they are starting their route.
+    @PutMapping("/vehicle/{driverId}")
+    public String updateVehicle(
+            @PathVariable String driverId,
+            @RequestBody Map<String, Object> body) {
+
+        return driverRepository.findById(driverId)
+                .map(driver -> {
+
+                    if (body.containsKey("vehicleType"))
+                        driver.setVehicleType(
+                                (String) body.get(
+                                        "vehicleType"));
+
+                    if (body.containsKey("vehicleNo"))
+                        driver.setVehicleNo(
+                                (String) body.get(
+                                        "vehicleNo"));
+
+                    if (body.containsKey(
+                            "vehicleCapacity")) {
+                        Object cap = body.get(
+                                "vehicleCapacity");
+                        if (cap instanceof Number)
+                            driver.setVehicleCapacity(
+                                    ((Number) cap)
+                                            .doubleValue());
+                    }
+
+                    if (body.containsKey("fuelLevel")) {
+                        String fuel = ((String) body.get(
+                                "fuelLevel"))
+                                .toUpperCase();
+                        // Only accept valid values
+                        if (fuel.equals("FULL")
+                                || fuel.equals("MID")
+                                || fuel.equals("LOW"))
+                            driver.setFuelLevel(fuel);
+                    }
+
+                    // Set ON_DELIVERY since driver
+                    // is starting their route
+                    driver.setStatus("ON_DELIVERY");
+
+                    driverRepository.save(driver);
+                    return "Vehicle updated successfully";
                 })
                 .orElse("Driver not found");
     }

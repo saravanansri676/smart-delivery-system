@@ -34,6 +34,9 @@ public class DeliveryOrchestratorService {
     @Autowired
     private FuelService fuelService;
 
+    @Autowired
+    private NotificationService notificationService;
+
     // ── MASTER METHOD ───────────────────────────────────────
     public Map<String, Object> generateFullDeliveryPlan(
             double startLat, double startLon) {
@@ -62,7 +65,6 @@ public class DeliveryOrchestratorService {
                         unassigned, startLat, startLon);
 
         // Step 4: Calculate how many drivers needed
-        // Issue 16 fixed — no longer capped at 2
         int driversNeeded = calculateDriversNeeded(
                 optimized, startLat, startLon,
                 availableDrivers.size());
@@ -91,25 +93,30 @@ public class DeliveryOrchestratorService {
 
             if (driverPackages.isEmpty()) continue;
 
-            // Assign packages to driver in DB
+            // ✅ Set status to PENDING_ACCEPTANCE
+            // instead of ASSIGNED directly.
+            // Driver must accept before status moves
+            // to ASSIGNED.
             for (Package pkg : driverPackages) {
-                pkg.setStatus("ASSIGNED");
+                pkg.setStatus("PENDING_ACCEPTANCE");
                 pkg.setAssignedDriverId(
                         driver.getDriverId());
                 packageRepository.save(pkg);
             }
-            driver.setStatus("ON_DELIVERY");
-            driverRepository.save(driver);
+
+            // Driver stays AVAILABLE until they accept
+            // (no longer set to ON_DELIVERY here)
 
             // Get behaviour-aware optimized route
             var behaviors = behaviorRepository
                     .findByDriverId(driver.getDriverId());
             List<Package> route = behaviors.isEmpty()
                     ? tspService.optimizeWithPriority(
-                    driverPackages, startLat, startLon)
+                    driverPackages,
+                    startLat, startLon)
                     : tspService.optimizeWithBehavior(
-                    driverPackages, startLat,
-                    startLon, behaviors);
+                    driverPackages,
+                    startLat, startLon, behaviors);
 
             // Build driver plan
             Map<String, Object> driverPlan =
@@ -127,15 +134,18 @@ public class DeliveryOrchestratorService {
                     timeWindowService.getFeasibilityReport(
                             route, startLat, startLon,
                             tspService);
-            driverPlan.put("timeWindowReport", timeReport);
+            driverPlan.put("timeWindowReport",
+                    timeReport);
 
             // Fuel check
-            String fuelReport = fuelService.getFuelReport(
-                    driver, route, startLat, startLon,
-                    tspService);
+            String fuelReport =
+                    fuelService.getFuelReport(
+                            driver, route,
+                            startLat, startLon,
+                            tspService);
             driverPlan.put("fuelReport", fuelReport);
 
-            // Deadline check
+            // Deadline warnings
             List<String> deadlineWarnings =
                     timeWindowService.checkDeadlines(
                             route, startLat, startLon,
@@ -144,6 +154,11 @@ public class DeliveryOrchestratorService {
                     deadlineWarnings);
 
             driverPlans.add(driverPlan);
+
+            // ✅ Send notification to driver
+            notificationService.notifyPackageAssigned(
+                    driver.getDriverId(),
+                    driverPackages.size());
         }
 
         plan.put("driverPlans", driverPlans);
@@ -152,18 +167,7 @@ public class DeliveryOrchestratorService {
         return plan;
     }
 
-    // ── Issue 16 fixed: Calculate drivers needed ────────────
-    // Old logic: always returned 1 or 2 regardless of load.
-    //
-    // New logic:
-    // 1. Check if 1 driver can handle all in mandatory hours
-    // 2. If not, estimate time per driver and calculate
-    //    how many are needed to finish within overtime (6PM)
-    // 3. Cap at available drivers count
-    //
-    // Formula: driversNeeded = ceil(totalTime / maxTimePerDriver)
-    // where maxTimePerDriver = overtime window in minutes (540)
-
+    // ── Calculate drivers needed ────────────────────────────
     private int calculateDriversNeeded(
             List<Package> packages,
             double startLat, double startLon,
@@ -171,57 +175,33 @@ public class DeliveryOrchestratorService {
 
         if (packages.isEmpty()) return 0;
 
-        // Check if 1 driver fits in mandatory hours
         if (timeWindowService.fitsInMandatoryHours(
-                packages, startLat, startLon, tspService)) {
+                packages, startLat, startLon, tspService))
             return 1;
-        }
 
-        // Check if 1 driver fits with overtime
         if (timeWindowService.fitsInOvertime(
-                packages, startLat, startLon, tspService)) {
+                packages, startLat, startLon, tspService))
             return 1;
-        }
 
-        // Calculate total minutes needed for all packages
         double totalMins = timeWindowService
-                .calculateTotalTime(
-                        packages, startLat, startLon,
-                        tspService);
+                .calculateTotalTime(packages,
+                        startLat, startLon, tspService);
 
-        // Maximum minutes a single driver can work
-        // from WORK_START (9AM) to OVERTIME_END (6PM) = 540 mins
-        double maxMinsPerDriver = 9 * 60; // 540 minutes
-
-        // How many drivers needed to finish within overtime
+        double maxMinsPerDriver = 9 * 60;
         int driversNeeded = (int) Math.ceil(
                 totalMins / maxMinsPerDriver);
 
-        // Always need at least 1
-        // Never more than available
         return Math.max(1,
                 Math.min(driversNeeded, availableCount));
     }
 
-    // ── Issue 16 fixed: Distribute packages across N drivers ─
-    // Old logic: simple round-robin (pkg i → driver i % n)
-    // This splits the optimized route randomly,
-    // breaking geographic clustering.
-    //
-    // New logic: slice the optimized route into N consecutive
-    // segments so each driver gets a geographically grouped
-    // set of stops — minimises total travel distance.
-    //
-    // Example: 12 packages, 3 drivers
-    // Driver 1 → packages 1-4  (first cluster)
-    // Driver 2 → packages 5-8  (middle cluster)
-    // Driver 3 → packages 9-12 (last cluster)
-
+    // ── Distribute packages across N drivers ────────────────
     private List<List<Package>> distributePackages(
             List<Package> packages, int numDrivers,
             double startLat, double startLon) {
 
-        List<List<Package>> distribution = new ArrayList<>();
+        List<List<Package>> distribution =
+                new ArrayList<>();
         for (int i = 0; i < numDrivers; i++) {
             distribution.add(new ArrayList<>());
         }
@@ -234,14 +214,11 @@ public class DeliveryOrchestratorService {
         int total = packages.size();
         int baseSize = total / numDrivers;
         int remainder = total % numDrivers;
-
         int index = 0;
-        for (int i = 0; i < numDrivers; i++) {
-            // Distribute remainder packages to first drivers
-            // e.g. 13 packages, 3 drivers → 5, 4, 4
-            int sliceSize = baseSize
-                    + (i < remainder ? 1 : 0);
 
+        for (int i = 0; i < numDrivers; i++) {
+            int sliceSize =
+                    baseSize + (i < remainder ? 1 : 0);
             for (int j = 0; j < sliceSize; j++) {
                 if (index < total) {
                     distribution.get(i)
@@ -259,6 +236,8 @@ public class DeliveryOrchestratorService {
 
         long inStore = packageRepository
                 .findByStatus("IN_STORE").size();
+        long pending = packageRepository
+                .findByStatus("PENDING_ACCEPTANCE").size();
         long assigned = packageRepository
                 .findByStatus("ASSIGNED").size();
         long delivered = packageRepository
@@ -269,12 +248,13 @@ public class DeliveryOrchestratorService {
                 .findByStatus("AVAILABLE").size();
 
         status.put("packagesInStore", inStore);
+        status.put("packagesPendingAcceptance", pending);
         status.put("packagesAssigned", assigned);
         status.put("packagesDelivered", delivered);
         status.put("activeDrivers", activeDrivers);
         status.put("availableDrivers", availableDrivers);
         status.put("totalPackages",
-                inStore + assigned + delivered);
+                inStore + pending + assigned + delivered);
 
         return status;
     }
