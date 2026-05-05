@@ -3,13 +3,12 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'packages_screen.dart';
-import 'route_type_screen.dart';
+import 'vehicle_details_screen.dart';
 import 'report_incident_screen.dart';
 import 'weather_screen.dart';
 import 'driver_profile_screen.dart';
 import 'notifications_screen.dart';
 import '../../services/work_hour_service.dart';
-import '../../services/depot_service.dart';
 
 class DriverHome extends StatefulWidget {
   final String driverIdFromLogin;
@@ -38,7 +37,7 @@ class _DriverHomeState extends State<DriverHome> {
   void initState() {
     super.initState();
 
-    // Start work hour monitoring
+    // Start work hour monitoring — auto OFFLINE at 16:00
     _workHourService = WorkHourService(
       driverId: widget.driverIdFromLogin,
       workEndTime: '16:00',
@@ -54,8 +53,7 @@ class _DriverHomeState extends State<DriverHome> {
               duration: const Duration(seconds: 5),
               behavior: SnackBarBehavior.floating,
               shape: RoundedRectangleBorder(
-                borderRadius:
-                BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(10),
               ),
             ),
           );
@@ -64,7 +62,7 @@ class _DriverHomeState extends State<DriverHome> {
     );
     _workHourService.start();
 
-    // Poll unread notification count
+    // Poll unread notification count every 30s
     _fetchUnreadCount();
     _notificationTimer = Timer.periodic(
       const Duration(seconds: 30),
@@ -114,10 +112,7 @@ class _DriverHomeState extends State<DriverHome> {
         transitionDuration:
         const Duration(milliseconds: 300),
       ),
-    ).then((_) {
-      // Refresh unread count when returning
-      _fetchUnreadCount();
-    });
+    ).then((_) => _fetchUnreadCount());
   }
 
   @override
@@ -133,7 +128,7 @@ class _DriverHomeState extends State<DriverHome> {
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
-          // ── Notifications bell with badge ──────
+          // Notifications bell with badge
           Stack(
             children: [
               IconButton(
@@ -158,8 +153,7 @@ class _DriverHomeState extends State<DriverHome> {
                       color: Colors.red,
                       shape: BoxShape.circle,
                     ),
-                    constraints:
-                    const BoxConstraints(
+                    constraints: const BoxConstraints(
                       minWidth: 18,
                       minHeight: 18,
                     ),
@@ -179,7 +173,7 @@ class _DriverHomeState extends State<DriverHome> {
             ],
           ),
 
-          // ── Profile icon ───────────────────────
+          // Profile icon
           IconButton(
             icon: const Icon(
               Icons.account_circle_rounded,
@@ -196,10 +190,9 @@ class _DriverHomeState extends State<DriverHome> {
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
-          crossAxisAlignment:
-          CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Header card ────────────────────────
+            // Header card
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(24),
@@ -212,8 +205,7 @@ class _DriverHomeState extends State<DriverHome> {
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
-                borderRadius:
-                BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(20),
                 boxShadow: [
                   BoxShadow(
                     color: const Color(0xFF1B5E20)
@@ -228,8 +220,8 @@ class _DriverHomeState extends State<DriverHome> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.white
-                          .withOpacity(0.2),
+                      color:
+                      Colors.white.withOpacity(0.2),
                       borderRadius:
                       BorderRadius.circular(14),
                     ),
@@ -278,7 +270,6 @@ class _DriverHomeState extends State<DriverHome> {
             ),
             const SizedBox(height: 28),
 
-            // ── Quick actions label ────────────────
             const Text(
               'QUICK ACTIONS',
               style: TextStyle(
@@ -290,11 +281,10 @@ class _DriverHomeState extends State<DriverHome> {
             ),
             const SizedBox(height: 16),
 
-            // ── 4 action cards ─────────────────────
+            // 4 action cards
             GridView.count(
               shrinkWrap: true,
-              physics:
-              const NeverScrollableScrollPhysics(),
+              physics: const NeverScrollableScrollPhysics(),
               crossAxisCount: 2,
               crossAxisSpacing: 16,
               mainAxisSpacing: 16,
@@ -314,6 +304,9 @@ class _DriverHomeState extends State<DriverHome> {
                 ),
 
                 // 2. My Route
+                // ✅ Opens VehicleDetailsScreen FIRST
+                // then RouteTypeScreen
+                // then ViewRouteScreen
                 _buildMenuCard(
                   context,
                   icon: Icons.route_rounded,
@@ -322,7 +315,7 @@ class _DriverHomeState extends State<DriverHome> {
                   color: const Color(0xFF2E7D32),
                   onTap: () => _navigate(
                     context,
-                    RouteTypeScreen(
+                    VehicleDetailsScreen(
                       driverId: driverId,
                       managerId: widget.managerId,
                     ),
@@ -390,20 +383,16 @@ class _DriverHomeState extends State<DriverHome> {
           ],
         ),
         child: Column(
-          crossAxisAlignment:
-          CrossAxisAlignment.start,
-          mainAxisAlignment:
-          MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
                 color: color.withOpacity(0.1),
-                borderRadius:
-                BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(icon,
-                  color: color, size: 28),
+              child: Icon(icon, color: color, size: 28),
             ),
             Column(
               crossAxisAlignment:
