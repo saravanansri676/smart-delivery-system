@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
-import 'view_route_screen.dart';
-import 'fuel_status_screen.dart';
+import 'dart:async';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'packages_screen.dart';
+import 'route_type_screen.dart';
 import 'report_incident_screen.dart';
-import 'map_route_screen.dart';
 import 'weather_screen.dart';
 import 'driver_profile_screen.dart';
+import 'notifications_screen.dart';
 import '../../services/work_hour_service.dart';
+import '../../services/depot_service.dart';
 
 class DriverHome extends StatefulWidget {
   final String driverIdFromLogin;
@@ -20,23 +24,25 @@ class DriverHome extends StatefulWidget {
   });
 
   @override
-  State<DriverHome> createState() => _DriverHomeState();
+  State<DriverHome> createState() =>
+      _DriverHomeState();
 }
 
 class _DriverHomeState extends State<DriverHome> {
   late final WorkHourService _workHourService;
+  Timer? _notificationTimer;
+  int _unreadCount = 0;
+  final String baseUrl = 'http://10.0.2.2:8080';
 
   @override
   void initState() {
     super.initState();
 
     // Start work hour monitoring
-    // Automatically sets driver OFFLINE at 16:00
     _workHourService = WorkHourService(
       driverId: widget.driverIdFromLogin,
       workEndTime: '16:00',
       onStatusChanged: (newStatus) {
-        // Show snackbar when auto-offline triggers
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -48,7 +54,8 @@ class _DriverHomeState extends State<DriverHome> {
               duration: const Duration(seconds: 5),
               behavior: SnackBarBehavior.floating,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
+                borderRadius:
+                BorderRadius.circular(10),
               ),
             ),
           );
@@ -56,13 +63,61 @@ class _DriverHomeState extends State<DriverHome> {
       },
     );
     _workHourService.start();
+
+    // Poll unread notification count
+    _fetchUnreadCount();
+    _notificationTimer = Timer.periodic(
+      const Duration(seconds: 30),
+          (_) => _fetchUnreadCount(),
+    );
   }
 
   @override
   void dispose() {
-    // Stop timer when driver leaves the dashboard
     _workHourService.stop();
+    _notificationTimer?.cancel();
     super.dispose();
+  }
+
+  Future<void> _fetchUnreadCount() async {
+    try {
+      final response = await http.get(Uri.parse(
+          '$baseUrl/notifications'
+              '/${widget.driverIdFromLogin}'
+              '/unread-count'));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        setState(() {
+          _unreadCount =
+              (data['count'] as num).toInt();
+        });
+      }
+    } catch (e) {
+      debugPrint('Notification count error: $e');
+    }
+  }
+
+  void _navigate(BuildContext context, Widget screen) {
+    Navigator.push(
+      context,
+      PageRouteBuilder(
+        pageBuilder: (_, a, b) => screen,
+        transitionsBuilder: (_, a, b, child) =>
+            SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(1, 0),
+                end: Offset.zero,
+              ).animate(CurvedAnimation(
+                  parent: a, curve: Curves.easeOut)),
+              child: child,
+            ),
+        transitionDuration:
+        const Duration(milliseconds: 300),
+      ),
+    ).then((_) {
+      // Refresh unread count when returning
+      _fetchUnreadCount();
+    });
   }
 
   @override
@@ -78,18 +133,62 @@ class _DriverHomeState extends State<DriverHome> {
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
+          // ── Notifications bell with badge ──────
+          Stack(
+            children: [
+              IconButton(
+                icon: const Icon(
+                  Icons.notifications_outlined,
+                  color: Colors.white,
+                  size: 26,
+                ),
+                onPressed: () => _navigate(
+                  context,
+                  NotificationsScreen(
+                      driverId: driverId),
+                ),
+              ),
+              if (_unreadCount > 0)
+                Positioned(
+                  right: 6,
+                  top: 6,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: const BoxDecoration(
+                      color: Colors.red,
+                      shape: BoxShape.circle,
+                    ),
+                    constraints:
+                    const BoxConstraints(
+                      minWidth: 18,
+                      minHeight: 18,
+                    ),
+                    child: Text(
+                      _unreadCount > 9
+                          ? '9+'
+                          : '$_unreadCount',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+
+          // ── Profile icon ───────────────────────
           IconButton(
             icon: const Icon(
               Icons.account_circle_rounded,
               color: Colors.white,
               size: 28,
             ),
-            onPressed: () => Navigator.push(
+            onPressed: () => _navigate(
               context,
-              MaterialPageRoute(
-                builder: (_) => DriverProfileScreen(
-                    driverId: driverId),
-              ),
+              DriverProfileScreen(driverId: driverId),
             ),
           ),
         ],
@@ -97,9 +196,10 @@ class _DriverHomeState extends State<DriverHome> {
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment:
+          CrossAxisAlignment.start,
           children: [
-            // Header card
+            // ── Header card ────────────────────────
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(24),
@@ -112,7 +212,8 @@ class _DriverHomeState extends State<DriverHome> {
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
-                borderRadius: BorderRadius.circular(20),
+                borderRadius:
+                BorderRadius.circular(20),
                 boxShadow: [
                   BoxShadow(
                     color: const Color(0xFF1B5E20)
@@ -127,9 +228,10 @@ class _DriverHomeState extends State<DriverHome> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
+                      color: Colors.white
+                          .withOpacity(0.2),
                       borderRadius:
-                      BorderRadius.circular(12),
+                      BorderRadius.circular(14),
                     ),
                     child: const Icon(
                       Icons.drive_eta_rounded,
@@ -157,14 +259,14 @@ class _DriverHomeState extends State<DriverHome> {
                           driverId,
                           style: const TextStyle(
                             color: Colors.white70,
-                            fontSize: 14,
+                            fontSize: 13,
                             fontFamily: 'monospace',
                           ),
                         ),
                         const Text(
                           'Smart Delivery System',
                           style: TextStyle(
-                            color: Colors.white60,
+                            color: Colors.white54,
                             fontSize: 12,
                           ),
                         ),
@@ -176,6 +278,7 @@ class _DriverHomeState extends State<DriverHome> {
             ),
             const SizedBox(height: 28),
 
+            // ── Quick actions label ────────────────
             const Text(
               'QUICK ACTIONS',
               style: TextStyle(
@@ -187,14 +290,30 @@ class _DriverHomeState extends State<DriverHome> {
             ),
             const SizedBox(height: 16),
 
+            // ── 4 action cards ─────────────────────
             GridView.count(
               shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
+              physics:
+              const NeverScrollableScrollPhysics(),
               crossAxisCount: 2,
               crossAxisSpacing: 16,
               mainAxisSpacing: 16,
               childAspectRatio: 1.1,
               children: [
+                // 1. Packages
+                _buildMenuCard(
+                  context,
+                  icon: Icons.inventory_2_rounded,
+                  title: 'Packages',
+                  subtitle: 'View assigned packages',
+                  color: const Color(0xFF0D47A1),
+                  onTap: () => _navigate(
+                    context,
+                    PackagesScreen(driverId: driverId),
+                  ),
+                ),
+
+                // 2. My Route
                 _buildMenuCard(
                   context,
                   icon: Icons.route_rounded,
@@ -203,31 +322,19 @@ class _DriverHomeState extends State<DriverHome> {
                   color: const Color(0xFF2E7D32),
                   onTap: () => _navigate(
                     context,
-                    ViewRouteScreen(
+                    RouteTypeScreen(
                       driverId: driverId,
                       managerId: widget.managerId,
                     ),
                   ),
                 ),
-                _buildMenuCard(
-                  context,
-                  icon: Icons.map_rounded,
-                  title: 'Route Map',
-                  subtitle: 'Visual navigation',
-                  color: const Color(0xFF00838F),
-                  onTap: () => _navigate(
-                    context,
-                    MapRouteScreen(
-                      driverId: driverId,
-                      managerId: widget.managerId,
-                    ),
-                  ),
-                ),
+
+                // 3. Weather
                 _buildMenuCard(
                   context,
                   icon: Icons.cloud_rounded,
                   title: 'Weather',
-                  subtitle: 'Current conditions',
+                  subtitle: 'Current condition',
                   color: const Color(0xFF1565C0),
                   onTap: () => _navigate(
                     context,
@@ -237,20 +344,8 @@ class _DriverHomeState extends State<DriverHome> {
                     ),
                   ),
                 ),
-                _buildMenuCard(
-                  context,
-                  icon: Icons.local_gas_station_rounded,
-                  title: 'Fuel Status',
-                  subtitle: 'Check & update fuel',
-                  color: const Color(0xFFE65100),
-                  onTap: () => _navigate(
-                    context,
-                    FuelStatusScreen(
-                      driverId: driverId,
-                      managerId: widget.managerId,
-                    ),
-                  ),
-                ),
+
+                // 4. Report Issue
                 _buildMenuCard(
                   context,
                   icon: Icons.warning_rounded,
@@ -267,26 +362,6 @@ class _DriverHomeState extends State<DriverHome> {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  void _navigate(BuildContext context, Widget screen) {
-    Navigator.push(
-      context,
-      PageRouteBuilder(
-        pageBuilder: (_, a, b) => screen,
-        transitionsBuilder: (_, a, b, child) =>
-            SlideTransition(
-              position: Tween<Offset>(
-                begin: const Offset(1, 0),
-                end: Offset.zero,
-              ).animate(CurvedAnimation(
-                  parent: a, curve: Curves.easeOut)),
-              child: child,
-            ),
-        transitionDuration:
-        const Duration(milliseconds: 300),
       ),
     );
   }
@@ -315,19 +390,24 @@ class _DriverHomeState extends State<DriverHome> {
           ],
         ),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment:
+          CrossAxisAlignment.start,
+          mainAxisAlignment:
+          MainAxisAlignment.spaceBetween,
           children: [
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
                 color: color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius:
+                BorderRadius.circular(12),
               ),
-              child: Icon(icon, color: color, size: 28),
+              child: Icon(icon,
+                  color: color, size: 28),
             ),
             Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment:
+              CrossAxisAlignment.start,
               children: [
                 Text(
                   title,

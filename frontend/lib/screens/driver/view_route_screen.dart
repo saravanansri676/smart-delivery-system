@@ -2,15 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../../services/depot_service.dart';
+import 'map_route_screen.dart';
 
 class ViewRouteScreen extends StatefulWidget {
   final String driverId;
   final String managerId;
+  final String routeType;
 
   const ViewRouteScreen({
     super.key,
     required this.driverId,
     required this.managerId,
+    this.routeType = 'SHORTEST',
   });
 
   @override
@@ -42,17 +45,39 @@ class _ViewRouteScreenState
     await fetchRoute();
   }
 
+  // ── Fetch route based on selected type ──────────────────
   Future<void> fetchRoute() async {
     setState(() => isLoading = true);
     try {
-      final response = await http.get(Uri.parse(
+      String endpoint;
+
+      switch (widget.routeType) {
+        case 'TRAFFIC_LESS':
+          endpoint =
+          '$baseUrl/behavior/route/${widget.driverId}'
+              '?startLat=$_startLat'
+              '&startLon=$_startLon';
+          break;
+        case 'PETROL_BUNK':
+        case 'WEATHER_GOOD':
+        case 'SHORTEST':
+        default:
+          endpoint =
           '$baseUrl/route/optimize/${widget.driverId}'
-              '?startLat=$_startLat&startLon=$_startLon'));
+              '?startLat=$_startLat'
+              '&startLon=$_startLon';
+          break;
+      }
+
+      final response =
+      await http.get(Uri.parse(endpoint));
       if (response.statusCode == 200) {
         setState(() {
           route = jsonDecode(response.body);
           isLoading = false;
         });
+      } else {
+        setState(() => isLoading = false);
       }
     } catch (e) {
       setState(() => isLoading = false);
@@ -71,10 +96,8 @@ class _ViewRouteScreenState
         final result = response.body;
 
         if (result == 'ALL_DELIVERED') {
-          // All packages done — show celebration dialog
           _showAllDeliveredDialog();
         } else if (result.startsWith('NEXT:')) {
-          // Parse next stop info
           final parts =
           result.substring(5).split('|');
           final address =
@@ -93,7 +116,8 @@ class _ViewRouteScreenState
                 children: [
                   const Text('✅ Package Delivered!',
                       style: TextStyle(
-                          fontWeight: FontWeight.w700)),
+                          fontWeight:
+                          FontWeight.w700)),
                   Text(
                       'Next: $name — $address'
                           ' (Deadline: $deadline)',
@@ -109,23 +133,16 @@ class _ViewRouteScreenState
                   BorderRadius.circular(10)),
             ),
           );
-          // Refresh route list
           fetchRoute();
         } else {
-          // Package not found or other error
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(result),
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
           fetchRoute();
         }
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Connection error. Try again.'),
+          content:
+          Text('Connection error. Try again.'),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
         ),
@@ -133,7 +150,6 @@ class _ViewRouteScreenState
     }
   }
 
-  // ── All packages delivered celebration dialog ────────────
   void _showAllDeliveredDialog() {
     showDialog(
       context: context,
@@ -146,7 +162,6 @@ class _ViewRouteScreenState
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Celebration emoji
               const Text('🎉',
                   style: TextStyle(fontSize: 64)),
               const SizedBox(height: 16),
@@ -176,8 +191,8 @@ class _ViewRouteScreenState
                         size: 40),
                     const SizedBox(height: 8),
                     const Text(
-                      'Great job! All packages have '
-                          'been successfully delivered.',
+                      'Great job! All packages '
+                          'delivered successfully.',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 14,
@@ -187,7 +202,6 @@ class _ViewRouteScreenState
                       ),
                     ),
                     const SizedBox(height: 8),
-                    // Status update confirmation
                     Container(
                       padding:
                       const EdgeInsets.symmetric(
@@ -202,9 +216,9 @@ class _ViewRouteScreenState
                       child: const Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(
-                              Icons.circle,
-                              color: Color(0xFF2E7D32),
+                          Icon(Icons.circle,
+                              color:
+                              Color(0xFF2E7D32),
                               size: 10),
                           SizedBox(width: 6),
                           Text(
@@ -227,8 +241,8 @@ class _ViewRouteScreenState
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: () {
-                    Navigator.pop(context); // close dialog
-                    fetchRoute(); // refresh — will show empty
+                    Navigator.pop(context);
+                    fetchRoute();
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor:
@@ -256,6 +270,32 @@ class _ViewRouteScreenState
     );
   }
 
+  String get _routeTypeLabel {
+    switch (widget.routeType) {
+      case 'TRAFFIC_LESS':
+        return 'Traffic Less';
+      case 'WEATHER_GOOD':
+        return 'Weather Good';
+      case 'PETROL_BUNK':
+        return 'Via Petrol Bunk';
+      default:
+        return 'Shortest';
+    }
+  }
+
+  Color get _routeTypeColor {
+    switch (widget.routeType) {
+      case 'TRAFFIC_LESS':
+        return const Color(0xFF2E7D32);
+      case 'WEATHER_GOOD':
+        return const Color(0xFFE65100);
+      case 'PETROL_BUNK':
+        return const Color(0xFF6A1B9A);
+      default:
+        return const Color(0xFF0D47A1);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -268,10 +308,29 @@ class _ViewRouteScreenState
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
+          // Route type badge
+          Container(
+            margin: const EdgeInsets.symmetric(
+                vertical: 10, horizontal: 4),
+            padding: const EdgeInsets.symmetric(
+                horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              _routeTypeLabel,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Icons.refresh_rounded),
             onPressed: fetchRoute,
-          )
+          ),
         ],
       ),
       body: isLoading
@@ -284,9 +343,11 @@ class _ViewRouteScreenState
           MainAxisAlignment.center,
           children: [
             Icon(
-                Icons.check_circle_outline_rounded,
+                Icons
+                    .check_circle_outline_rounded,
                 size: 72,
-                color: Colors.green.shade300),
+                color:
+                Colors.green.shade300),
             const SizedBox(height: 16),
             const Text(
               'No packages assigned',
@@ -297,73 +358,192 @@ class _ViewRouteScreenState
           ],
         ),
       )
-          : ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: route.length,
-        itemBuilder: (context, index) {
-          final pkg = route[index];
-          return Card(
-            margin: const EdgeInsets.only(
-                bottom: 12),
-            shape: RoundedRectangleBorder(
-              borderRadius:
-              BorderRadius.circular(12),
-            ),
-            child: ListTile(
-              leading: CircleAvatar(
-                backgroundColor:
-                const Color(0xFF1565C0),
-                child: Text('${index + 1}',
-                    style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight:
-                        FontWeight.bold)),
-              ),
-              title: Text(
-                pkg['packageName'] ?? '',
-                style: const TextStyle(
-                    fontWeight:
-                    FontWeight.w600),
-              ),
-              subtitle: Column(
-                crossAxisAlignment:
-                CrossAxisAlignment.start,
-                children: [
-                  Text(pkg['address'] ?? '',
-                      maxLines: 2,
-                      overflow: TextOverflow
-                          .ellipsis),
-                  Text(
-                    'Deadline: ${pkg['deadline']}',
-                    style: const TextStyle(
-                      color: Color(0xFF1565C0),
+          : Column(
+        children: [
+          // Route type + View Map button bar
+          Container(
+            width: double.infinity,
+            padding:
+            const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 10),
+            color: _routeTypeColor
+                .withOpacity(0.08),
+            child: Row(
+              children: [
+                Icon(Icons.route_rounded,
+                    color: _routeTypeColor,
+                    size: 16),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    '$_routeTypeLabel route • '
+                        '${route.length} stop'
+                        '${route.length == 1 ? '' : 's'}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: _routeTypeColor,
                       fontWeight:
-                      FontWeight.w500,
+                      FontWeight.w600,
                     ),
                   ),
-                ],
-              ),
-              trailing: ElevatedButton(
-                onPressed: () => markDelivered(
-                    pkg['packageId']),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets
-                      .symmetric(
-                      horizontal: 12,
-                      vertical: 8),
-                  shape: RoundedRectangleBorder(
-                    borderRadius:
-                    BorderRadius.circular(
-                        8),
+                ),
+
+                // ✅ View Map button
+                GestureDetector(
+                  onTap: () =>
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              MapRouteScreen(
+                                driverId:
+                                widget.driverId,
+                                managerId:
+                                widget.managerId,
+                                routeType:
+                                widget.routeType,
+                              ),
+                        ),
+                      ),
+                  child: Container(
+                    padding:
+                    const EdgeInsets
+                        .symmetric(
+                        horizontal: 12,
+                        vertical: 6),
+                    decoration: BoxDecoration(
+                      color: _routeTypeColor,
+                      borderRadius:
+                      BorderRadius
+                          .circular(20),
+                    ),
+                    child: const Row(
+                      mainAxisSize:
+                      MainAxisSize.min,
+                      children: [
+                        Icon(
+                            Icons.map_rounded,
+                            color:
+                            Colors.white,
+                            size: 14),
+                        SizedBox(width: 4),
+                        Text(
+                          'View Map',
+                          style: TextStyle(
+                            color:
+                            Colors.white,
+                            fontSize: 12,
+                            fontWeight:
+                            FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-                child: const Text('Done'),
-              ),
+              ],
             ),
-          );
-        },
+          ),
+
+          // Route list
+          Expanded(
+            child: ListView.builder(
+              padding:
+              const EdgeInsets.all(16),
+              itemCount: route.length,
+              itemBuilder: (context, index) {
+                final pkg = route[index];
+                return Card(
+                  margin:
+                  const EdgeInsets.only(
+                      bottom: 12),
+                  shape:
+                  RoundedRectangleBorder(
+                    borderRadius:
+                    BorderRadius.circular(
+                        12),
+                  ),
+                  child: ListTile(
+                    leading: CircleAvatar(
+                      backgroundColor:
+                      const Color(
+                          0xFF1565C0),
+                      child: Text(
+                          '${index + 1}',
+                          style: const TextStyle(
+                              color:
+                              Colors.white,
+                              fontWeight:
+                              FontWeight
+                                  .bold)),
+                    ),
+                    title: Text(
+                      pkg['packageName'] ??
+                          '',
+                      style: const TextStyle(
+                          fontWeight:
+                          FontWeight.w600),
+                    ),
+                    subtitle: Column(
+                      crossAxisAlignment:
+                      CrossAxisAlignment
+                          .start,
+                      children: [
+                        Text(
+                          pkg['address'] ??
+                              '',
+                          maxLines: 2,
+                          overflow:
+                          TextOverflow
+                              .ellipsis,
+                        ),
+                        Text(
+                          'Deadline: ${pkg['deadline']}',
+                          style:
+                          const TextStyle(
+                            color: Color(
+                                0xFF1565C0),
+                            fontWeight:
+                            FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                    trailing:
+                    ElevatedButton(
+                      onPressed: () =>
+                          markDelivered(
+                              pkg['packageId']),
+                      style: ElevatedButton
+                          .styleFrom(
+                        backgroundColor:
+                        Colors.green,
+                        foregroundColor:
+                        Colors.white,
+                        padding:
+                        const EdgeInsets
+                            .symmetric(
+                            horizontal:
+                            12,
+                            vertical: 8),
+                        shape:
+                        RoundedRectangleBorder(
+                          borderRadius:
+                          BorderRadius
+                              .circular(
+                              8),
+                        ),
+                      ),
+                      child: const Text(
+                          'Done'),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
