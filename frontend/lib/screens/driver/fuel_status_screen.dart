@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import '../../services/depot_service.dart';
+import '../../config/app_config.dart';
 
 class FuelStatusScreen extends StatefulWidget {
   final String driverId;
@@ -23,7 +24,6 @@ class _FuelStatusScreenState
   bool isLoading = true;
   double _startLat = DepotService.defaultLat;
   double _startLon = DepotService.defaultLon;
-  final String baseUrl = 'http://10.0.2.2:8080';
 
   @override
   void initState() {
@@ -46,7 +46,7 @@ class _FuelStatusScreenState
     setState(() => isLoading = true);
     try {
       final response = await http.get(Uri.parse(
-          '$baseUrl/fuel/report/${widget.driverId}'
+          '${AppConfig.baseUrl}/fuel/report/${widget.driverId}'
               '?startLat=$_startLat&startLon=$_startLon'));
       if (response.statusCode == 200) {
         setState(() {
@@ -64,7 +64,7 @@ class _FuelStatusScreenState
 
   Future<void> updateFuel(String level) async {
     await http.put(Uri.parse(
-        '$baseUrl/fuel/update/${widget.driverId}'
+        '${AppConfig.baseUrl}/fuel/update/${widget.driverId}'
             '?fuelLevel=$level'));
     fetchFuelReport();
   }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'route_type_screen.dart';
+import '../../config/app_config.dart';
 
 class VehicleDetailsScreen extends StatefulWidget {
   final String driverId;
@@ -25,7 +26,6 @@ class _VehicleDetailsScreenState
   String _selectedVehicleType = 'BIKE';
   String _selectedFuel = 'FULL';
   bool _isSubmitting = false;
-  final String baseUrl = 'http://10.0.2.2:8080';
 
   final List<Map<String, dynamic>> _vehicleTypes = [
     {
@@ -59,7 +59,7 @@ class _VehicleDetailsScreenState
     try {
       final response = await http.put(
         Uri.parse(
-            '$baseUrl/drivers/vehicle'
+            '${AppConfig.baseUrl}/drivers/vehicle'
                 '/${widget.driverId}'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({

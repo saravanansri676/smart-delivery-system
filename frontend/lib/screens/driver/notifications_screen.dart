@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import '../../config/app_config.dart';
 
 class NotificationsScreen extends StatefulWidget {
   final String driverId;
@@ -19,7 +20,6 @@ class _NotificationsScreenState
     extends State<NotificationsScreen> {
   List<dynamic> notifications = [];
   bool isLoading = true;
-  final String baseUrl = 'http://10.0.2.2:8080';
 
   @override
   void initState() {
@@ -31,7 +31,7 @@ class _NotificationsScreenState
     setState(() => isLoading = true);
     try {
       final response = await http.get(Uri.parse(
-          '$baseUrl/notifications/${widget.driverId}'));
+          '${AppConfig.baseUrl}/notifications/${widget.driverId}'));
       if (response.statusCode == 200) {
         setState(() {
           notifications =
@@ -47,7 +47,7 @@ class _NotificationsScreenState
   Future<void> markAllRead() async {
     try {
       await http.put(Uri.parse(
-          '$baseUrl/notifications/read-all'
+          '${AppConfig.baseUrl}/notifications/read-all'
               '/${widget.driverId}'));
       // Refresh list
       await fetchNotifications();
@@ -60,7 +60,7 @@ class _NotificationsScreenState
     if (notification['read'] == true) return;
     try {
       await http.put(Uri.parse(
-          '$baseUrl/notifications/read'
+          '${AppConfig.baseUrl}/notifications/read'
               '/${notification['id']}'));
       await fetchNotifications();
     } catch (e) {
@@ -71,7 +71,7 @@ class _NotificationsScreenState
   Future<void> clearAll() async {
     try {
       await http.delete(Uri.parse(
-          '$baseUrl/notifications/${widget.driverId}'));
+          '${AppConfig.baseUrl}/notifications/${widget.driverId}'));
       await fetchNotifications();
     } catch (e) {
       debugPrint('Clear error: $e');

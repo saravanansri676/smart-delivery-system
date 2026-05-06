@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import '../../config/app_config.dart';
 
 class DriverRequestScreen extends StatefulWidget {
   final String managerId;
@@ -21,7 +22,6 @@ class DriverRequestScreen extends StatefulWidget {
 class _DriverRequestScreenState
     extends State<DriverRequestScreen> {
   late List<dynamic> _requests;
-  final String baseUrl = 'http://10.0.2.2:8080';
   // Track which requests are being processed
   Set<String> _loadingIds = {};
 
@@ -38,7 +38,7 @@ class _DriverRequestScreenState
 
     try {
       final response = await http.put(Uri.parse(
-          '$baseUrl/driver-requests/accept/$requestId'));
+          '${AppConfig.baseUrl}/driver-requests/accept/$requestId'));
 
       if (response.statusCode == 200 &&
           response.body.startsWith('ACCEPTED')) {
@@ -107,7 +107,7 @@ class _DriverRequestScreenState
 
     try {
       final response = await http.put(Uri.parse(
-          '$baseUrl/driver-requests/reject/$requestId'));
+          '${AppConfig.baseUrl}/driver-requests/reject/$requestId'));
 
       if (response.statusCode == 200 &&
           response.body.startsWith('REJECTED')) {

@@ -9,6 +9,7 @@ import 'weather_screen.dart';
 import 'driver_profile_screen.dart';
 import 'notifications_screen.dart';
 import '../../services/work_hour_service.dart';
+import '../../config/app_config.dart';
 
 class DriverHome extends StatefulWidget {
   final String driverIdFromLogin;
@@ -31,7 +32,6 @@ class _DriverHomeState extends State<DriverHome> {
   late final WorkHourService _workHourService;
   Timer? _notificationTimer;
   int _unreadCount = 0;
-  final String baseUrl = 'http://10.0.2.2:8080';
 
   @override
   void initState() {
@@ -80,7 +80,7 @@ class _DriverHomeState extends State<DriverHome> {
   Future<void> _fetchUnreadCount() async {
     try {
       final response = await http.get(Uri.parse(
-          '$baseUrl/notifications'
+          '${AppConfig.baseUrl}/notifications'
               '/${widget.driverIdFromLogin}'
               '/unread-count'));
       if (response.statusCode == 200) {

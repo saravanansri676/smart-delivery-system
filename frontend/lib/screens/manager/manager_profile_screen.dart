@@ -6,6 +6,7 @@ import 'dart:convert';
 import '../../services/session_service.dart';
 import '../../services/logout_helper.dart';
 import '../../services/geocoding_service.dart';
+import '../../config/app_config.dart';
 
 class ManagerProfileScreen extends StatefulWidget {
   final String managerId;
@@ -32,7 +33,6 @@ class _ManagerProfileScreenState
   Map<String, dynamic> statusData = {};
   bool isLoading = true;
   bool isSaving = false;
-  final String baseUrl = 'http://10.0.2.2:8080';
   final GeocodingService _geocodingService =
   GeocodingService();
 
@@ -47,10 +47,10 @@ class _ManagerProfileScreenState
     try {
       final results = await Future.wait([
         http.get(Uri.parse(
-            '$baseUrl/auth/manager/profile'
+            '${AppConfig.baseUrl}/auth/manager/profile'
                 '/${widget.managerId}')),
-        http.get(Uri.parse('$baseUrl/delivery/status')),
-        http.get(Uri.parse('$baseUrl/drivers/all')),
+        http.get(Uri.parse('${AppConfig.baseUrl}/delivery/status')),
+        http.get(Uri.parse('${AppConfig.baseUrl}/drivers/all')),
       ]);
 
       if (results[0].statusCode == 200) {
@@ -92,7 +92,7 @@ class _ManagerProfileScreenState
     try {
       final response = await http.put(
         Uri.parse(
-            '$baseUrl/auth/manager/profile'
+            '${AppConfig.baseUrl}/auth/manager/profile'
                 '/${widget.managerId}'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode(updatedData),

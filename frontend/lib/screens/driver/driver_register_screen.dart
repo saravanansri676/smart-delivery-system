@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import '../../config/app_config.dart';
 
 class DriverRegisterScreen extends StatefulWidget {
   const DriverRegisterScreen({super.key});
@@ -41,8 +42,6 @@ class _DriverRegisterScreenState
     "What was the make of your first vehicle?",
   ];
 
-  final String baseUrl = 'http://10.0.2.2:8080';
-
   Future<void> _register() async {
     // Validate all fields
     if (_driverIdController.text.isEmpty ||
@@ -72,7 +71,7 @@ class _DriverRegisterScreenState
 
     try {
       final response = await http.post(
-        Uri.parse('$baseUrl/driver-requests/register'),
+        Uri.parse('${AppConfig.baseUrl}/driver-requests/register'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'driverId': _driverIdController.text.trim(),

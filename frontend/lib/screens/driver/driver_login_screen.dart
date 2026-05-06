@@ -5,6 +5,7 @@ import 'driver_home.dart';
 import 'driver_register_screen.dart';
 import 'driver_forgot_password_screen.dart';
 import '../../services/session_service.dart';
+import '../../config/app_config.dart';
 
 class DriverLoginScreen extends StatefulWidget {
   const DriverLoginScreen({super.key});
@@ -20,7 +21,6 @@ class _DriverLoginScreenState
   final _passwordController = TextEditingController();
   bool _isLoading = false;
   bool _obscurePassword = true;
-  final String baseUrl = 'http://10.0.2.2:8080';
 
   Future<void> _login() async {
     if (_driverIdController.text.isEmpty ||
@@ -33,7 +33,7 @@ class _DriverLoginScreenState
 
     try {
       final response = await http.post(
-        Uri.parse('$baseUrl/auth/driver/login'),
+        Uri.parse('${AppConfig.baseUrl}/auth/driver/login'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'driverId': _driverIdController.text.trim(),

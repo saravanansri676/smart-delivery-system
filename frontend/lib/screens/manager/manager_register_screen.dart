@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'manager_otp_screen.dart';
+import '../../config/app_config.dart';
 
 class ManagerRegisterScreen extends StatefulWidget {
   const ManagerRegisterScreen({super.key});
@@ -20,7 +21,6 @@ class _ManagerRegisterScreenState
   final _passwordController = TextEditingController();
   bool _isLoading = false;
   bool _obscurePassword = true;
-  final String baseUrl = 'http://10.0.2.2:8080';
 
   Future<void> _register() async {
     if (_managerIdController.text.isEmpty ||
@@ -46,7 +46,7 @@ class _ManagerRegisterScreenState
 
     try {
       final response = await http.post(
-        Uri.parse('$baseUrl/auth/manager/register'),
+        Uri.parse('${AppConfig.baseUrl}/auth/manager/register'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'managerId': _managerIdController.text.trim(),

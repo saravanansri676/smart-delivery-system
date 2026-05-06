@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'manager_otp_screen.dart';
+import '../../config/app_config.dart';
 
 class ManagerForgotPasswordScreen extends StatefulWidget {
   const ManagerForgotPasswordScreen({super.key});
@@ -19,7 +20,6 @@ class _ManagerForgotPasswordScreenState
   bool _isLoading = false;
   bool _obscurePassword = true;
   String _email = '';
-  final String baseUrl = 'http://10.0.2.2:8080';
 
   Future<void> _sendOTP() async {
     if (_managerIdController.text.isEmpty) {
@@ -39,7 +39,7 @@ class _ManagerForgotPasswordScreenState
 
     try {
       final response = await http.post(
-        Uri.parse('$baseUrl/auth/manager/forgot-password'),
+        Uri.parse('${AppConfig.baseUrl}/auth/manager/forgot-password'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'managerId': _managerIdController.text.trim(),

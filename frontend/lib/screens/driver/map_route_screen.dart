@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../../services/weather_service.dart';
 import '../../services/depot_service.dart';
+import '../../config/app_config.dart';
 
 class MapRouteScreen extends StatefulWidget {
   final String driverId;
@@ -38,7 +39,6 @@ class _MapRouteScreenState
       DepotService.defaultLat,
       DepotService.defaultLon);
 
-  final String baseUrl = 'http://10.0.2.2:8080';
   final WeatherService weatherService =
   WeatherService();
 
@@ -70,7 +70,7 @@ class _MapRouteScreenState
       switch (widget.routeType) {
         case 'TRAFFIC_LESS':
           endpoint =
-          '$baseUrl/behavior/route/${widget.driverId}'
+          '${AppConfig.baseUrl}/behavior/route/${widget.driverId}'
               '?startLat=$lat&startLon=$lon';
           break;
         case 'PETROL_BUNK':
@@ -78,7 +78,7 @@ class _MapRouteScreenState
         case 'SHORTEST':
         default:
           endpoint =
-          '$baseUrl/route/optimize/${widget.driverId}'
+          '${AppConfig.baseUrl}/route/optimize/${widget.driverId}'
               '?startLat=$lat&startLon=$lon';
           break;
       }

@@ -3,6 +3,7 @@ import '../manager/view_packages_screen.dart';
 import 'package_detail_screen.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import '../../config/app_config.dart';
 
 class DriverProfileScreen extends StatelessWidget {
   final Map driver;
@@ -417,7 +418,6 @@ class _PackageListScreenState
     extends State<_PackageListScreen> {
   List packages = [];
   bool isLoading = true;
-  final String baseUrl = 'http://10.0.2.2:8080';
 
   @override
   void initState() {
@@ -428,7 +428,7 @@ class _PackageListScreenState
   Future<void> fetchPackages() async {
     try {
       final response = await http.get(
-          Uri.parse('$baseUrl/packages/all'));
+          Uri.parse('${AppConfig.baseUrl}/packages/all'));
       if (response.statusCode == 200) {
         final all = jsonDecode(response.body) as List;
         setState(() {

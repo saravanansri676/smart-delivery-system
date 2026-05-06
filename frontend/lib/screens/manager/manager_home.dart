@@ -9,6 +9,7 @@ import 'delivery_status_screen.dart';
 import 'manager_profile_screen.dart';
 import 'driver_request_screen.dart';
 import '../../services/depot_service.dart';
+import '../../config/app_config.dart';
 
 class ManagerHome extends StatefulWidget {
   final String managerId;
@@ -29,7 +30,6 @@ class ManagerHome extends StatefulWidget {
 }
 
 class _ManagerHomeState extends State<ManagerHome> {
-  final String baseUrl = 'http://10.0.2.2:8080';
   List<dynamic> _pendingRequests = [];
   Timer? _pollingTimer;
   bool _popupShown = false;
@@ -63,7 +63,7 @@ class _ManagerHomeState extends State<ManagerHome> {
   Future<void> _fetchLiveCounts() async {
     try {
       final response = await http
-          .get(Uri.parse('$baseUrl/delivery/status'));
+          .get(Uri.parse('${AppConfig.baseUrl}/delivery/status'));
       if (response.statusCode == 200) {
         final data =
         jsonDecode(response.body) as Map<String, dynamic>;
@@ -136,7 +136,7 @@ class _ManagerHomeState extends State<ManagerHome> {
 
       final response = await http.post(
         Uri.parse(
-            '$baseUrl/delivery/plan'
+            '${AppConfig.baseUrl}/delivery/plan'
                 '?startLat=$lat&startLon=$lon'),
       );
 
@@ -340,7 +340,7 @@ class _ManagerHomeState extends State<ManagerHome> {
   Future<void> _checkPendingRequests() async {
     try {
       final response = await http.get(Uri.parse(
-          '$baseUrl/driver-requests/pending'
+          '${AppConfig.baseUrl}/driver-requests/pending'
               '/${widget.managerId}'));
       if (response.statusCode == 200) {
         final List<dynamic> requests =

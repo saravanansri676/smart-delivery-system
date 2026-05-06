@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import '../../config/app_config.dart';
 
 class DeclineReasonScreen extends StatefulWidget {
   final String driverId;
@@ -19,18 +20,17 @@ class _DeclineReasonScreenState
     extends State<DeclineReasonScreen> {
   final _reasonController = TextEditingController();
   bool _isSubmitting = false;
-  final String baseUrl = 'http://10.0.2.2:8080';
 
   Future<void> _submit() async {
     if (_reasonController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content:
-          const Text('Please enter a reason'),
+          content: const Text('Please enter a reason'),
           backgroundColor: Colors.red.shade700,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10)),
+            borderRadius: BorderRadius.circular(10),
+          ),
         ),
       );
       return;
@@ -39,31 +39,31 @@ class _DeclineReasonScreenState
     setState(() => _isSubmitting = true);
 
     try {
-      final response = await http.put(
+      final response = await http
+          .put(
         Uri.parse(
-            '$baseUrl/packages/decline'
-                '/${widget.driverId}'),
+          '${AppConfig.baseUrl}/packages/decline/${widget.driverId}',
+        ),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'reason': _reasonController.text.trim(),
         }),
-      );
+      )
+          .timeout(AppConfig.connectTimeout);
 
       if (response.statusCode == 200 &&
           response.body.startsWith('DECLINED')) {
-        // Pop back with true = declined successfully
         Navigator.pop(context, true);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content:
-            Text('Failed to decline. Try again.'),
+            content: Text('Failed to decline. Try again.'),
             backgroundColor: Colors.red,
             behavior: SnackBarBehavior.floating,
           ),
         );
       }
-    } catch (e) {
+    } catch (_) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Connection error.'),
@@ -106,13 +106,16 @@ class _DeclineReasonScreenState
                 color: Colors.red.shade50,
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(
-                    color: Colors.red.shade200),
+                  color: Colors.red.shade200,
+                ),
               ),
               child: Row(
                 children: [
-                  Icon(Icons.warning_amber_rounded,
-                      color: Colors.red.shade700,
-                      size: 28),
+                  Icon(
+                    Icons.warning_amber_rounded,
+                    color: Colors.red.shade700,
+                    size: 28,
+                  ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
@@ -160,19 +163,20 @@ class _DeclineReasonScreenState
                   'these packages.',
               style: TextStyle(
                 fontSize: 13,
-                color: Colors.grey.shade500,
+                color: Colors.grey,
               ),
             ),
             const SizedBox(height: 16),
 
-            // Reason text field
+            // Text field
             TextField(
               controller: _reasonController,
               maxLines: 5,
               decoration: InputDecoration(
                 hintText: 'Type your reason here...',
                 hintStyle: TextStyle(
-                    color: Colors.grey.shade400),
+                  color: Colors.grey.shade400,
+                ),
                 border: OutlineInputBorder(
                   borderRadius:
                   BorderRadius.circular(12),
@@ -187,12 +191,13 @@ class _DeclineReasonScreenState
                 ),
                 filled: true,
                 fillColor: Colors.white,
-                contentPadding: const EdgeInsets.all(16),
+                contentPadding:
+                const EdgeInsets.all(16),
               ),
             ),
             const SizedBox(height: 12),
 
-            // Quick reason chips
+            // Quick reasons
             Wrap(
               spacing: 8,
               runSpacing: 8,
@@ -208,13 +213,16 @@ class _DeclineReasonScreenState
                   },
                   child: Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 6),
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius:
                       BorderRadius.circular(20),
                       border: Border.all(
-                          color: Colors.grey.shade300),
+                        color: Colors.grey.shade300,
+                      ),
                     ),
                     child: Text(
                       reason,
@@ -237,7 +245,8 @@ class _DeclineReasonScreenState
                 onPressed:
                 _isSubmitting ? null : _submit,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red.shade700,
+                  backgroundColor:
+                  Colors.red.shade700,
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                     borderRadius:
@@ -246,7 +255,8 @@ class _DeclineReasonScreenState
                 ),
                 child: _isSubmitting
                     ? const CircularProgressIndicator(
-                    color: Colors.white)
+                  color: Colors.white,
+                )
                     : const Text(
                   'Submit',
                   style: TextStyle(
@@ -258,7 +268,7 @@ class _DeclineReasonScreenState
             ),
             const SizedBox(height: 12),
 
-            // Cancel link
+            // Cancel
             Center(
               child: TextButton(
                 onPressed: () =>

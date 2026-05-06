@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'driver_profile_screen.dart';
+import '../../config/app_config.dart';
 
 class ViewDriversScreen extends StatefulWidget {
   const ViewDriversScreen({super.key});
@@ -14,7 +15,6 @@ class ViewDriversScreen extends StatefulWidget {
 class _ViewDriversScreenState extends State<ViewDriversScreen> {
   List drivers = [];
   bool isLoading = true;
-  final String baseUrl = 'http://10.0.2.2:8080';
 
   @override
   void initState() {
@@ -25,7 +25,7 @@ class _ViewDriversScreenState extends State<ViewDriversScreen> {
   Future<void> fetchDrivers() async {
     try {
       final response =
-      await http.get(Uri.parse('$baseUrl/drivers/all'));
+      await http.get(Uri.parse('${AppConfig.baseUrl}/drivers/all'));
       if (response.statusCode == 200) {
         setState(() {
           drivers = jsonDecode(response.body);

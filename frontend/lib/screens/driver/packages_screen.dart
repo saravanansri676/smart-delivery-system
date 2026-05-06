@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'decline_reason_screen.dart';
+import '../../config/app_config.dart';
 
 class PackagesScreen extends StatefulWidget {
   final String driverId;
@@ -23,7 +24,6 @@ class _PackagesScreenState
   List<dynamic> deliveredPackages = [];
   bool isLoading = true;
   bool isAccepting = false;
-  final String baseUrl = 'http://10.0.2.2:8080';
 
   @override
   void initState() {
@@ -37,15 +37,15 @@ class _PackagesScreenState
       // Fetch all three statuses in parallel
       final results = await Future.wait([
         http.get(Uri.parse(
-            '$baseUrl/packages/by-driver-status'
+            '${AppConfig.baseUrl}/packages/by-driver-status'
                 '?driverId=${widget.driverId}'
                 '&status=PENDING_ACCEPTANCE')),
         http.get(Uri.parse(
-            '$baseUrl/packages/by-driver-status'
+            '${AppConfig.baseUrl}/packages/by-driver-status'
                 '?driverId=${widget.driverId}'
                 '&status=ASSIGNED')),
         http.get(Uri.parse(
-            '$baseUrl/packages/by-driver-status'
+            '${AppConfig.baseUrl}/packages/by-driver-status'
                 '?driverId=${widget.driverId}'
                 '&status=DELIVERED')),
       ]);
@@ -72,7 +72,7 @@ class _PackagesScreenState
     setState(() => isAccepting = true);
     try {
       final response = await http.put(Uri.parse(
-          '$baseUrl/packages/accept/${widget.driverId}'));
+          '${AppConfig.baseUrl}/packages/accept/${widget.driverId}'));
 
       if (response.statusCode == 200 &&
           response.body.startsWith('ACCEPTED')) {

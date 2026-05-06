@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package_detail_screen.dart';
+import '../../config/app_config.dart';
 
 class ViewPackagesScreen extends StatefulWidget {
   const ViewPackagesScreen({super.key});
@@ -13,7 +14,6 @@ class ViewPackagesScreen extends StatefulWidget {
 class _ViewPackagesScreenState extends State<ViewPackagesScreen> {
   List packages = [];
   bool isLoading = true;
-  final String baseUrl = 'http://10.0.2.2:8080';
 
   @override
   void initState() {
@@ -26,7 +26,7 @@ class _ViewPackagesScreenState extends State<ViewPackagesScreen> {
 
     try {
       final response = await http.get(
-        Uri.parse('$baseUrl/packages/all'),
+        Uri.parse('${AppConfig.baseUrl}/packages/all'),
       );
 
       if (response.statusCode == 200) {

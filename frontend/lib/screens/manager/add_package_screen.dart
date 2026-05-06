@@ -9,6 +9,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/rendering.dart';
 import 'package:path_provider/path_provider.dart';
 import '../../services/geocoding_service.dart';
+import '../../config/app_config.dart';
 
 class AddPackageScreen extends StatefulWidget {
   const AddPackageScreen({super.key});
@@ -46,7 +47,6 @@ class _AddPackageScreenState extends State<AddPackageScreen> {
   bool _showSuggestions = false;
 
   final GeocodingService _geocodingService = GeocodingService();
-  final String baseUrl = 'http://10.0.2.2:8080';
 
   // Build final address from parts
   String get _finalAddress {
@@ -159,7 +159,7 @@ class _AddPackageScreenState extends State<AddPackageScreen> {
 
     try {
       final response = await http.post(
-        Uri.parse('$baseUrl/packages/add'),
+        Uri.parse('${AppConfig.baseUrl}/packages/add'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           //  No packageId sent — backend generates it

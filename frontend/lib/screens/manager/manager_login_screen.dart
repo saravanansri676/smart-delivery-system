@@ -5,6 +5,7 @@ import 'manager_home.dart';
 import 'manager_register_screen.dart';
 import 'manager_forgot_password_screen.dart';
 import '../../services/session_service.dart';
+import '../../config/app_config.dart';
 
 class ManagerLoginScreen extends StatefulWidget {
   const ManagerLoginScreen({super.key});
@@ -20,7 +21,6 @@ class _ManagerLoginScreenState
   final _passwordController = TextEditingController();
   bool _isLoading = false;
   bool _obscurePassword = true;
-  final String baseUrl = 'http://10.0.2.2:8080';
 
   Future<void> _login() async {
     if (_managerIdController.text.isEmpty ||
@@ -33,7 +33,7 @@ class _ManagerLoginScreenState
 
     try {
       final response = await http.post(
-        Uri.parse('$baseUrl/auth/manager/login'),
+        Uri.parse('${AppConfig.baseUrl}/auth/manager/login'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'managerId':

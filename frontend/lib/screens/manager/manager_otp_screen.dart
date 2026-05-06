@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'manager_home.dart';
 import 'manager_login_screen.dart';
+import '../../config/app_config.dart';
 
 class ManagerOTPScreen extends StatefulWidget {
   final String managerId;
@@ -31,7 +32,6 @@ class _ManagerOTPScreenState
   final List<FocusNode> _focusNodes =
   List.generate(6, (_) => FocusNode());
   bool _isLoading = false;
-  final String baseUrl = 'http://10.0.2.2:8080';
 
   String get _otp =>
       _otpControllers.map((c) => c.text).join();
@@ -49,13 +49,13 @@ class _ManagerOTPScreenState
       Map<String, String> body;
 
       if (widget.purpose == 'REGISTRATION') {
-        endpoint = '$baseUrl/auth/manager/verify-registration';
+        endpoint = '${AppConfig.baseUrl}/auth/manager/verify-registration';
         body = {
           'managerId': widget.managerId,
           'otp': _otp,
         };
       } else {
-        endpoint = '$baseUrl/auth/manager/reset-password';
+        endpoint = '${AppConfig.baseUrl}/auth/manager/reset-password';
         body = {
           'managerId': widget.managerId,
           'otp': _otp,

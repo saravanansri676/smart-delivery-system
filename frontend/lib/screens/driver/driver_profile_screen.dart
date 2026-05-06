@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../login_screen.dart';
 import '../../services/logout_helper.dart';
+import '../../config/app_config.dart';
 
 class DriverProfileScreen extends StatefulWidget {
   final String driverId;
@@ -21,7 +22,6 @@ class _DriverProfileScreenState
   bool isLoading = true;
   bool isSaving = false;
   bool isUpdatingStatus = false;
-  final String baseUrl = 'http://10.0.2.2:8080';
 
   @override
   void initState() {
@@ -33,11 +33,11 @@ class _DriverProfileScreenState
     setState(() => isLoading = true);
     try {
       final profileRes = await http.get(Uri.parse(
-          '$baseUrl/auth/driver/profile'
+          '${AppConfig.baseUrl}/auth/driver/profile'
               '/${widget.driverId}'));
 
       final driverRes = await http
-          .get(Uri.parse('$baseUrl/drivers/all'));
+          .get(Uri.parse('${AppConfig.baseUrl}/drivers/all'));
 
       if (driverRes.statusCode == 200) {
         final all =
@@ -135,7 +135,7 @@ class _DriverProfileScreenState
 
     try {
       final response = await http.put(Uri.parse(
-          '$baseUrl/drivers/status/${widget.driverId}'
+          '${AppConfig.baseUrl}/drivers/status/${widget.driverId}'
               '?status=$newStatus'));
 
       if (response.statusCode == 200) {
@@ -173,7 +173,7 @@ class _DriverProfileScreenState
     try {
       final response = await http.put(
         Uri.parse(
-            '$baseUrl/drivers/profile'
+            '${AppConfig.baseUrl}/drivers/profile'
                 '/${widget.driverId}'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode(updatedData),
@@ -525,7 +525,7 @@ class _DriverProfileScreenState
         builder: (_) => _DriverPackageListScreen(
           driverId: widget.driverId,
           status: status,
-          baseUrl: baseUrl,
+          baseUrl: '${AppConfig.baseUrl}',
         ),
       ),
     );

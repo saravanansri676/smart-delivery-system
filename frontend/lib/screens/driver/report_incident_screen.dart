@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import '../../config/app_config.dart';
 
 class ReportIncidentScreen extends StatefulWidget {
   final String driverId;
@@ -16,7 +17,6 @@ class _ReportIncidentScreenState
   String _selectedIssue = 'BREAKDOWN';
   String _response = '';
   bool _isLoading = false;
-  final String baseUrl = 'http://10.0.2.2:8080';
 
   final List<Map<String, dynamic>> issues = [
     {'label': 'Vehicle Breakdown', 'value': 'BREAKDOWN',
@@ -33,7 +33,7 @@ class _ReportIncidentScreenState
     setState(() => _isLoading = true);
     try {
       final response = await http.post(Uri.parse(
-          '$baseUrl/incident/report/${widget.driverId}'
+          '${AppConfig.baseUrl}/incident/report/${widget.driverId}'
               '?issue=$_selectedIssue'));
       if (response.statusCode == 200) {
         setState(() => _response = response.body);

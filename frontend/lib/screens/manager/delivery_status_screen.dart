@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package_detail_screen.dart';
+import '../../config/app_config.dart';
 
 class DeliveryStatusScreen extends StatefulWidget {
   const DeliveryStatusScreen({super.key});
@@ -15,7 +16,6 @@ class _DeliveryStatusScreenState
     extends State<DeliveryStatusScreen> {
   Map status = {};
   bool isLoading = true;
-  final String baseUrl = 'http://10.0.2.2:8080';
 
   @override
   void initState() {
@@ -26,7 +26,7 @@ class _DeliveryStatusScreenState
   Future<void> fetchStatus() async {
     try {
       final response = await http
-          .get(Uri.parse('$baseUrl/delivery/status'));
+          .get(Uri.parse('${AppConfig.baseUrl}/delivery/status'));
       if (response.statusCode == 200) {
         setState(() {
           status = jsonDecode(response.body);
@@ -49,7 +49,7 @@ class _DeliveryStatusScreenState
             _FilteredPackagesScreen(
               filterStatus: filterStatus,
               title: title,
-              baseUrl: baseUrl,
+              baseUrl: '${AppConfig.baseUrl}',
             ),
         transitionsBuilder: (_, a, b, child) =>
             SlideTransition(

@@ -1,54 +1,37 @@
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import '../config/app_config.dart';
 
-/// Shared service used by all screens that need the
-/// depot (warehouse) start coordinates.
-///
-/// Previously every screen hardcoded:
-///   startLat=13.0827&startLon=80.2707
-///
-/// Now all screens call DepotService.getDepot(managerId)
-/// to get the manager's configured depot location.
-///
-/// Falls back to Chennai default if depot not set yet.
 class DepotService {
-  static const String baseUrl = 'http://10.0.2.2:8080';
+  static double get defaultLat =>
+      AppConfig.defaultLatitude;
+  static double get defaultLon =>
+      AppConfig.defaultLongitude;
 
-  // Default fallback coordinates (Chennai)
-  // Used when manager has not yet configured depot
-  static const double defaultLat = 11.0939;
-  static const double defaultLon = 76.9447;
-
-  /// Fetch depot coordinates for a manager.
-  /// Returns [lat, lon] — never null.
-  /// Falls back to Chennai default if not configured.
+  /// Returns [latitude, longitude] for the given manager's depot.
+  /// Falls back to Coimbatore defaults if not set.
   static Future<List<double>> getDepotCoords(
       String managerId) async {
     try {
-      if (managerId.isEmpty) {
-        return [defaultLat, defaultLon];
-      }
+      final response = await http
+          .get(Uri.parse(
+          '${AppConfig.baseUrl}/depot/$managerId'))
+          .timeout(AppConfig.receiveTimeout);
 
-      final response = await http.get(
-        Uri.parse('$baseUrl/depot/$managerId'),
-      );
-
-      if (response.statusCode == 200 &&
-          response.body.isNotEmpty &&
-          response.body != 'null') {
+      if (response.statusCode == 200) {
         final data = jsonDecode(response.body)
         as Map<String, dynamic>;
         final lat =
-        (data['latitude'] as num).toDouble();
+        (data['latitude'] as num?)?.toDouble();
         final lon =
-        (data['longitude'] as num).toDouble();
-        return [lat, lon];
+        (data['longitude'] as num?)?.toDouble();
+        if (lat != null && lon != null) {
+          return [lat, lon];
+        }
       }
     } catch (e) {
-      // Silent fallback — don't crash the screen
+      // Fall through to defaults
     }
-
-    // Return default if anything goes wrong
     return [defaultLat, defaultLon];
   }
 }

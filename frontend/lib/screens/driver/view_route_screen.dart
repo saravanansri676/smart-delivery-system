@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../../services/depot_service.dart';
 import 'map_route_screen.dart';
+import '../../config/app_config.dart';
 
 class ViewRouteScreen extends StatefulWidget {
   final String driverId;
@@ -27,7 +28,6 @@ class _ViewRouteScreenState
   bool isLoading = true;
   double _startLat = DepotService.defaultLat;
   double _startLon = DepotService.defaultLon;
-  final String baseUrl = 'http://10.0.2.2:8080';
 
   @override
   void initState() {
@@ -52,7 +52,7 @@ class _ViewRouteScreenState
       switch (widget.routeType) {
         case 'TRAFFIC_LESS':
           endpoint =
-          '$baseUrl/behavior/route/${widget.driverId}'
+          '${AppConfig.baseUrl}/behavior/route/${widget.driverId}'
               '?startLat=$_startLat&startLon=$_startLon';
           break;
         case 'PETROL_BUNK':
@@ -60,7 +60,7 @@ class _ViewRouteScreenState
         case 'SHORTEST':
         default:
           endpoint =
-          '$baseUrl/route/optimize/${widget.driverId}'
+          '${AppConfig.baseUrl}/route/optimize/${widget.driverId}'
               '?startLat=$_startLat&startLon=$_startLon';
           break;
       }
@@ -83,7 +83,7 @@ class _ViewRouteScreenState
   Future<void> markDelivered(String packageId) async {
     try {
       final response = await http.put(Uri.parse(
-          '$baseUrl/reroute/delivered/$packageId'
+          '${AppConfig.baseUrl}/reroute/delivered/$packageId'
               '?driverId=${widget.driverId}'
               '&currentLat=$_startLat'
               '&currentLon=$_startLon'));
