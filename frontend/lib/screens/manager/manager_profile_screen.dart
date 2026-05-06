@@ -645,8 +645,8 @@ class _ManagerProfileScreenState
                                   content: Text(
                                     selectedLocation !=
                                         null
-                                        ? '✅ Profile & depot location saved!'
-                                        : '✅ Profile saved!',
+                                        ? ' Profile & depot location saved!'
+                                        : ' Profile saved!',
                                   ),
                                   backgroundColor:
                                   Colors.green,
@@ -661,7 +661,7 @@ class _ManagerProfileScreenState
                                   .showSnackBar(
                                 const SnackBar(
                                   content: Text(
-                                      '❌ Save failed. Try again.'),
+                                      ' Save failed. Try again.'),
                                   backgroundColor:
                                   Colors.red,
                                   behavior:

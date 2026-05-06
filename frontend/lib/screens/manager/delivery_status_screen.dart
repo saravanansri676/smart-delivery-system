@@ -299,7 +299,7 @@ class _DeliveryStatusScreenState
   }
 }
 
-// ✅ Issue 6 fixed: uses GET /packages/by-status
+//  Issue 6 fixed: uses GET /packages/by-status
 // instead of GET /packages/all + client-side filter
 class _FilteredPackagesScreen extends StatefulWidget {
   final String filterStatus;
@@ -330,7 +330,7 @@ class _FilteredPackagesScreenState
 
   Future<void> fetchPackages() async {
     try {
-      // ✅ Proper filter endpoint — no client-side filtering
+      //  Proper filter endpoint — no client-side filtering
       final response = await http.get(Uri.parse(
           '${widget.baseUrl}/packages/by-status'
               '?status=${widget.filterStatus}'));

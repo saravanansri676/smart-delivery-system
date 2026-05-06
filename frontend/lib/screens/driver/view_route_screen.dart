@@ -110,7 +110,7 @@ class _ViewRouteScreenState
                 crossAxisAlignment:
                 CrossAxisAlignment.start,
                 children: [
-                  const Text('✅ Package Delivered!',
+                  const Text(' Package Delivered!',
                       style: TextStyle(
                           fontWeight:
                           FontWeight.w700)),
@@ -253,7 +253,7 @@ class _ViewRouteScreenState
                     ),
                   ),
                   child: const Text(
-                    'Done — Great Job! 🚀',
+                    'Done — Great Job! ',
                     style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600),

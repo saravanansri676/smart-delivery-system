@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'manager/manager_login_screen.dart';
-import 'driver/driver_home.dart';
 import 'driver/driver_login_screen.dart';
 
 class LoginScreen extends StatefulWidget {

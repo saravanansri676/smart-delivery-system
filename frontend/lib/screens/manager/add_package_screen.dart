@@ -162,7 +162,7 @@ class _AddPackageScreenState extends State<AddPackageScreen> {
         Uri.parse('$baseUrl/packages/add'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
-          // ✅ No packageId sent — backend generates it
+          //  No packageId sent — backend generates it
           'packageName': _packageNameController.text,
           'receiverName': _receiverNameController.text,
           'receiverPhone': _receiverPhoneController.text,
@@ -180,7 +180,7 @@ class _AddPackageScreenState extends State<AddPackageScreen> {
 
       if (response.statusCode == 200 &&
           response.body.startsWith('Package added:')) {
-        // ✅ Extract packageId from backend response
+        //  Extract packageId from backend response
         // Response format: "Package added: PKG1234567890"
         final backendPackageId =
         response.body.split(': ')[1].trim();
@@ -230,7 +230,7 @@ class _AddPackageScreenState extends State<AddPackageScreen> {
       final byteData = await image.toByteData(
           format: ui.ImageByteFormat.png);
       final pngBytes = byteData!.buffer.asUint8List();
-      // ✅ Cross-platform directory
+      //  Cross-platform directory
       final directory =
       await getApplicationDocumentsDirectory();
       final path =
@@ -354,7 +354,7 @@ class _AddPackageScreenState extends State<AddPackageScreen> {
                 ),
                 const SizedBox(height: 12),
                 const Text(
-                  '📋 Print this QR code and paste on package',
+                  ' Print this QR code and paste on package',
                   style: TextStyle(
                     fontSize: 12,
                     color: Color(0xFF0D47A1),

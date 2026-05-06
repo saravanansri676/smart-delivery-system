@@ -46,7 +46,7 @@ class _DriverHomeState extends State<DriverHome> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                '🕓 Work hours ended. '
+                ' Work hours ended. '
                     'Your status is now $newStatus.',
               ),
               backgroundColor: Colors.orange.shade700,
@@ -304,7 +304,7 @@ class _DriverHomeState extends State<DriverHome> {
                 ),
 
                 // 2. My Route
-                // ✅ Opens VehicleDetailsScreen FIRST
+                // Opens VehicleDetailsScreen FIRST
                 // then RouteTypeScreen
                 // then ViewRouteScreen
                 _buildMenuCard(

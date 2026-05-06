@@ -54,7 +54,7 @@ class _ManagerLoginScreenState
         final company =
         parts.length > 3 ? parts[3] : '';
 
-        // ✅ Save session so app remembers on next open
+        //  Save session so app remembers on next open
         await SessionService.saveManagerSession(
           managerId: _managerIdController.text.trim(),
           managerName: name,

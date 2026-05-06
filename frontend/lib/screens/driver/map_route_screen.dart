@@ -29,7 +29,7 @@ class _MapRouteScreenState
   bool isLoading = true;
   bool isLoadingRoute = false;
   String weatherWarning = '';
-  String weatherIcon = '🌤';
+  String weatherIcon = ' ';
   Map weatherData = {};
 
   List<LatLng> roadPolylinePoints = [];
@@ -135,7 +135,7 @@ class _MapRouteScreenState
         coords.write(';$lon,$lat');
       }
 
-      // ✅ End: depot again (return trip)
+      //  End: depot again (return trip)
       coords.write(
           ';${_startLocation.longitude},'
               '${_startLocation.latitude}');

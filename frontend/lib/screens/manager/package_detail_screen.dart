@@ -7,7 +7,7 @@ class PackageDetailScreen extends StatelessWidget {
   const PackageDetailScreen(
       {super.key, required this.package});
 
-  // ✅ Issue 9 fixed: MOVING status removed
+  //  Issue 9 fixed: MOVING status removed
   Color _getStatusColor(String status) {
     switch (status) {
       case 'IN_STORE':

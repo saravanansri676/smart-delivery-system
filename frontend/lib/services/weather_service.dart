@@ -34,28 +34,28 @@ class WeatherService {
 
     // Check dangerous conditions
     if (condition.contains('thunderstorm')) {
-      return '⛈ THUNDERSTORM WARNING in $cityName! '
+      return ' THUNDERSTORM WARNING in $cityName! '
           'Avoid delivery if possible.';
     } else if (condition.contains('tornado')) {
-      return '🌪 TORNADO WARNING! Stop delivery immediately.';
+      return ' TORNADO WARNING! Stop delivery immediately.';
     } else if (condition.contains('snow')) {
-      return '❄ SNOW WARNING in $cityName! '
+      return ' SNOW WARNING in $cityName! '
           'Drive carefully, roads may be slippery.';
     } else if (condition.contains('rain') && windSpeed > 10) {
-      return '🌧 HEAVY RAIN in $cityName! '
+      return ' HEAVY RAIN in $cityName! '
           'Reduce speed. Package protection needed.';
     } else if (condition.contains('rain')) {
-      return '🌦 Light rain in $cityName. '
+      return ' Light rain in $cityName. '
           'Keep packages covered.';
     } else if (windSpeed > 15) {
-      return '💨 Strong winds in $cityName! '
+      return ' Strong winds in $cityName! '
           'Drive carefully.';
     } else if (temp > 40) {
       return '🌡 Extreme heat (${temp}°C)! '
           'Stay hydrated.';
     }
 
-    return '✅ Weather clear in $cityName. '
+    return ' Weather clear in $cityName. '
         'Good conditions for delivery!';
   }
 
